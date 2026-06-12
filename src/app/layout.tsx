@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: "%s | BoatyardJobs",
   },
   description:
-    "Every marine trades job in one place: marine technicians, electricians, riggers, yard staff and more at boatyards, marinas and dealerships across the United States.",
+    "Marine trades jobs from across the US, in one place: marine technicians, electricians, riggers, yard staff and more at boatyards, marinas and dealerships nationwide.",
 };
 
 function SiteHeader() {

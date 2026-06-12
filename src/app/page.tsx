@@ -20,8 +20,8 @@ export default async function HomePage() {
       <section className="bg-navy-800 text-white">
         <div className="mx-auto max-w-6xl px-4 py-16">
           <h1 className="max-w-2xl text-4xl font-bold leading-tight">
-            Every marine trades job in the US.{" "}
-            <span className="text-brass-400">One place.</span>
+            Marine trades jobs from across the US —{" "}
+            <span className="text-brass-400">in one place.</span>
           </h1>
           <p className="mt-4 max-w-xl text-lg text-navy-100">
             Marine technicians, electricians, riggers and yard crew — {total} open positions at
