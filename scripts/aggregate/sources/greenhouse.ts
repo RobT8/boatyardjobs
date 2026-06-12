@@ -4,6 +4,7 @@ import type { NewJobInput } from "../../../src/lib/jobs";
 import {
   inferCategory,
   inferCertifications,
+  isTradeRole,
   stateCodeFromRegion,
 } from "../../../src/lib/taxonomy";
 
@@ -67,7 +68,7 @@ export function createGreenhouseSource(config: GreenhouseConfig): SourceAdapter 
         const description = htmlToText(decodeEntities(String(j?.content ?? "")));
         if (description.length < 20) continue;
         const title = String(j?.title ?? "").trim();
-        if (!title) continue;
+        if (!title || !isTradeRole(title)) continue; // trades only, not corporate roles
 
         const haystack = `${title} ${description}`;
         out.push({
@@ -75,7 +76,7 @@ export function createGreenhouseSource(config: GreenhouseConfig): SourceAdapter 
           company: config.company,
           city: location.city,
           state: location.state,
-          category: inferCategory(haystack),
+          category: inferCategory(title),
           description,
           certifications: inferCertifications(haystack),
           source: config.id,

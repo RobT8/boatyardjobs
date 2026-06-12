@@ -138,3 +138,16 @@ export function inferCertifications(...text: (string | null | undefined)[]): str
   const haystack = text.filter(Boolean).join(" ").toLowerCase();
   return CERTIFICATIONS.filter((cert) => haystack.includes(cert.toLowerCase()));
 }
+
+/**
+ * Whether a job TITLE describes a hands-on marine trade (vs. a corporate or
+ * office role). Used to keep employer-direct sources on-topic — a boat company's
+ * "Total Rewards Manager" or "Sales Advisor" shouldn't land on a trades board.
+ * Judge on the title only; descriptions are full of company boilerplate.
+ */
+const TRADE_ROLE_RE =
+  /\b(technician|tech|mechanic|electrician|electrical|rigger|rigging|fiberglass|gelcoat|gel ?coat|laminat\w*|composite|canvas|upholster\w*|detailer|detailing|forklift|travel ?lift|travelift|haul[- ]?out|deck ?hand|dock ?hand|fabricat\w*|welder|welding|installer|outfitter|finisher|painter|machinist|diesel|outboard|sterndrive|mercruiser|repower|boat ?builder|shipwright|service (writer|advisor|manager|technician)|yard (hand|staff|lead|crew)|marina (attendant|staff|tech\w*))\b/i;
+
+export function isTradeRole(title: string | null | undefined): boolean {
+  return !!title && TRADE_ROLE_RE.test(title);
+}

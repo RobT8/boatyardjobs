@@ -187,7 +187,7 @@ export function jobPostingToInput(posting: any, opts: ToInputOptions): NewJobInp
     company,
     city: location.city,
     state: location.state,
-    category: inferCategory(...haystack),
+    category: inferCategory(title),
     employment_type: employmentType.toUpperCase().replace(/\s+/g, "_"),
     description,
     certifications: inferCertifications(...haystack),

@@ -4,6 +4,7 @@ import type { NewJobInput } from "../../../src/lib/jobs";
 import {
   inferCategory,
   inferCertifications,
+  isTradeRole,
   stateCodeFromRegion,
 } from "../../../src/lib/taxonomy";
 
@@ -62,6 +63,7 @@ function toInput(r: any): NewJobInput | null {
 
   const haystack = `${title} ${description}`;
   if (!MARINE_RE.test(haystack) || EXCLUDE_RE.test(haystack)) return null;
+  if (!isTradeRole(title)) return null; // keep trade roles, drop marine sales/admin
 
   const location = parseLocation(r?.location);
   if (!location) return null;
@@ -76,7 +78,7 @@ function toInput(r: any): NewJobInput | null {
     company,
     city: location.city,
     state: location.state,
-    category: inferCategory(haystack),
+    category: inferCategory(title),
     employment_type: r?.contract_time === "part_time" ? "PART_TIME" : "FULL_TIME",
     description,
     salary_min,
