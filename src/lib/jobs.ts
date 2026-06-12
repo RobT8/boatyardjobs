@@ -183,6 +183,94 @@ export function insertJob(input: NewJobInput): string {
   return slug;
 }
 
+export type UpsertResult = "created" | "updated" | "unchanged";
+
+/**
+ * Insert or refresh an aggregated listing, keyed on (source, source_url) — the
+ * stable identity for a job that lives on someone else's site. Returns whether
+ * the row was created, updated (content changed), or left unchanged. A listing
+ * that had expired comes back to 'published' if it reappears upstream.
+ */
+export function upsertSourcedJob(input: NewJobInput): UpsertResult {
+  const db = getDb();
+  const source = input.source ?? "direct";
+  if (!input.source_url) {
+    // No stable upstream key — fall back to a plain insert.
+    insertJob(input);
+    return "created";
+  }
+
+  const existing = db
+    .prepare("SELECT * FROM jobs WHERE source = ? AND source_url = ?")
+    .get(source, input.source_url) as JobRow | undefined;
+
+  if (!existing) {
+    insertJob(input);
+    return "created";
+  }
+
+  const next = {
+    title: input.title,
+    company: input.company,
+    city: input.city,
+    state: input.state.toUpperCase(),
+    category: input.category,
+    employment_type: input.employment_type ?? "FULL_TIME",
+    description: input.description,
+    salary_min: input.salary_min ?? null,
+    salary_max: input.salary_max ?? null,
+    salary_unit: input.salary_unit ?? "YEAR",
+    certifications: JSON.stringify(input.certifications ?? []),
+  };
+
+  const unchanged =
+    existing.status === "published" &&
+    existing.title === next.title &&
+    existing.company === next.company &&
+    existing.city === next.city &&
+    existing.state === next.state &&
+    existing.category === next.category &&
+    existing.employment_type === next.employment_type &&
+    existing.description === next.description &&
+    existing.salary_min === next.salary_min &&
+    existing.salary_max === next.salary_max &&
+    existing.salary_unit === next.salary_unit &&
+    existing.certifications === next.certifications;
+
+  if (unchanged) return "unchanged";
+
+  db.prepare(
+    `UPDATE jobs SET title=@title, company=@company, city=@city, state=@state,
+       category=@category, employment_type=@employment_type, description=@description,
+       salary_min=@salary_min, salary_max=@salary_max, salary_unit=@salary_unit,
+       certifications=@certifications, status='published'
+     WHERE id=@id`
+  ).run({ ...next, id: existing.id });
+  return "updated";
+}
+
+/**
+ * Mark every published listing from `source` whose source_url is NOT in
+ * `seenUrls` as expired — i.e. it vanished upstream since the last run. Returns
+ * the number of rows expired. Callers must only invoke this after a *successful*
+ * fetch, or a transient upstream outage would wipe the board.
+ */
+export function expireMissingFromSource(source: string, seenUrls: string[]): number {
+  const db = getDb();
+  const live = db
+    .prepare("SELECT id, source_url FROM jobs WHERE source = ? AND status = 'published'")
+    .all(source) as { id: number; source_url: string | null }[];
+
+  const seen = new Set(seenUrls);
+  const stale = live.filter((r) => r.source_url && !seen.has(r.source_url));
+  if (stale.length === 0) return 0;
+
+  const update = db.prepare("UPDATE jobs SET status='expired' WHERE id = ?");
+  const tx = db.transaction((ids: number[]) => ids.forEach((id) => update.run(id)));
+  tx(stale.map((r) => r.id));
+  return stale.length;
+}
+
 export function formatSalary(job: Job): string | null {
   if (job.salary_min == null && job.salary_max == null) return null;
   const fmt = (n: number) =>

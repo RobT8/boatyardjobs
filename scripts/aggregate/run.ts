@@ -1,22 +1,39 @@
-import { getDb } from "../../src/lib/db";
-import { insertJob, slugify } from "../../src/lib/jobs";
+import { upsertSourcedJob, expireMissingFromSource } from "../../src/lib/jobs";
 import type { SourceAdapter } from "./types";
+import { createJsonLdSource } from "./sources/jsonld";
 import exampleAssociation from "./sources/example-association";
 
-const ADAPTERS: SourceAdapter[] = [exampleAssociation];
+/**
+ * Source registry. Add a real board here:
+ *  - Most sites publish schema.org JobPosting JSON-LD → use createJsonLdSource.
+ *  - Sites without structured data → copy example-association.ts and hand-parse.
+ *
+ * The example adapters below return nothing; they're templates. Replace the
+ * `url`/`pages` with a real listings page to switch the board on.
+ */
+const ADAPTERS: SourceAdapter[] = [
+  createJsonLdSource({
+    id: "example-jsonld",
+    name: "Example Marine Trades Association (JSON-LD)",
+    url: "https://example.org/careers",
+  }),
+  exampleAssociation,
+];
 
 /**
  * Aggregation entry point — run on a schedule (cron / GitHub Action):
  *   npm run aggregate
  *
- * Dedupe strategy: a job is "the same" if its derived slug base matches an
- * existing listing from the same source. Existing rows are refreshed
- * (kept published); rows that disappear upstream should eventually be expired —
- * that pass is TODO until the first real adapter lands.
+ * Per source we: upsert every fetched listing (new → insert, changed → update,
+ * reappeared → re-publish), then expire any previously-published listing that
+ * has vanished upstream. Expiry runs ONLY after a successful fetch, so a
+ * transient outage can't wipe the board. Each source is isolated: one failing
+ * adapter never touches another's listings.
  */
 async function main() {
-  const db = getDb();
-  let inserted = 0;
+  let created = 0;
+  let updated = 0;
+  let expired = 0;
 
   for (const adapter of ADAPTERS) {
     console.log(`[${adapter.id}] fetching…`);
@@ -24,23 +41,33 @@ async function main() {
     try {
       jobs = await adapter.fetchJobs();
     } catch (err) {
-      console.error(`[${adapter.id}] FAILED:`, err);
+      console.error(`[${adapter.id}] FAILED, skipping (listings left untouched):`, err);
       continue;
     }
 
+    const seenUrls: string[] = [];
+    let srcCreated = 0;
+    let srcUpdated = 0;
     for (const job of jobs) {
-      const base = slugify(`${job.title} ${job.company} ${job.city} ${job.state}`);
-      const existing = db
-        .prepare("SELECT id FROM jobs WHERE source = ? AND slug LIKE ?")
-        .get(adapter.id, `${base}%`);
-      if (existing) continue;
-      insertJob({ ...job, source: adapter.id });
-      inserted++;
+      const result = upsertSourcedJob({ ...job, source: adapter.id });
+      if (job.source_url) seenUrls.push(job.source_url);
+      if (result === "created") srcCreated++;
+      else if (result === "updated") srcUpdated++;
     }
-    console.log(`[${adapter.id}] done — ${jobs.length} fetched`);
+
+    const srcExpired = expireMissingFromSource(adapter.id, seenUrls);
+    created += srcCreated;
+    updated += srcUpdated;
+    expired += srcExpired;
+    console.log(
+      `[${adapter.id}] done — ${jobs.length} fetched ` +
+        `(${srcCreated} new, ${srcUpdated} updated, ${srcExpired} expired)`
+    );
   }
 
-  console.log(`Aggregation complete: ${inserted} new jobs inserted.`);
+  console.log(
+    `Aggregation complete: ${created} new, ${updated} updated, ${expired} expired.`
+  );
 }
 
 main();
