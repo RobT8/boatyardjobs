@@ -1,8 +1,26 @@
 import Database from "better-sqlite3";
 import path from "path";
+import os from "os";
 import fs from "fs";
 
-const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
+/**
+ * Pick a writable location for the SQLite file.
+ *  - DATA_DIR env var wins, if set (use this to point at a mounted volume).
+ *  - On Vercel/serverless the project dir is read-only; only the OS temp dir
+ *    (/tmp) is writable, so fall back there. Note this is ephemeral and
+ *    per-instance — fine for previews and seed data, but writes won't persist
+ *    across cold starts. Swap in a hosted DB (Turso/libSQL, Postgres) for prod.
+ *  - Otherwise use ./data for local development.
+ */
+function resolveDataDir(): string {
+  if (process.env.DATA_DIR) return process.env.DATA_DIR;
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join(os.tmpdir(), "boatyardjobs");
+  }
+  return path.join(process.cwd(), "data");
+}
+
+const DATA_DIR = resolveDataDir();
 const DB_PATH = path.join(DATA_DIR, "boatyardjobs.db");
 
 let db: Database.Database | null = null;
