@@ -1,18 +1,42 @@
 import { upsertSourcedJob, expireMissingFromSource } from "../../src/lib/jobs";
 import type { SourceAdapter } from "./types";
 import { adzunaSource } from "./sources/adzuna";
+import { createGreenhouseSource } from "./sources/greenhouse";
+import { createWorkdaySource } from "./sources/workday";
 
 /**
- * Source registry. Each source is only enabled when its credentials are present,
- * so a run with no configured sources is a clean no-op.
+ * Source registry.
  *
- * To add more:
- *  - Sites that publish schema.org JobPosting JSON-LD (most modern career
- *    pages): `createJsonLdSource({ id, name, url })` from ./sources/jsonld.
- *  - Sites without structured data: copy ./sources/example-association.ts and
- *    hand-parse, then add it here.
+ * Direct-employer sources (Greenhouse/Workday) use public, key-free endpoints
+ * and run on every invocation. Adzuna is enabled only when its keys are present.
+ *
+ * Add more employers:
+ *  - Greenhouse board: createGreenhouseSource({ id, name, company, token }).
+ *  - Workday careers:  createWorkdaySource({ id, name, company, host, tenant, site }).
+ *  - Pages with schema.org JobPosting JSON-LD: createJsonLdSource (./sources/jsonld).
  */
-const ADAPTERS: SourceAdapter[] = [];
+const ADAPTERS: SourceAdapter[] = [
+  createGreenhouseSource({
+    id: "gh-arcboatcompany",
+    name: "Arc Boat Company",
+    company: "Arc Boat Company",
+    token: "arcboatcompany",
+  }),
+  createGreenhouseSource({
+    id: "gh-navierboat",
+    name: "Navier",
+    company: "Navier",
+    token: "navierboat",
+  }),
+  createWorkdaySource({
+    id: "wd-brunswick",
+    name: "Brunswick (Mercury Marine, Boston Whaler, Sea Ray)",
+    company: "Brunswick",
+    host: "brunswick.wd1.myworkdayjobs.com",
+    tenant: "brunswick",
+    site: "search",
+  }),
+];
 
 if (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) {
   ADAPTERS.push(adzunaSource());
