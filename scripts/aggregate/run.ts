@@ -1,24 +1,21 @@
 import { upsertSourcedJob, expireMissingFromSource } from "../../src/lib/jobs";
 import type { SourceAdapter } from "./types";
-import { createJsonLdSource } from "./sources/jsonld";
-import exampleAssociation from "./sources/example-association";
 
 /**
- * Source registry. Add a real board here:
- *  - Most sites publish schema.org JobPosting JSON-LD → use createJsonLdSource.
- *  - Sites without structured data → copy example-association.ts and hand-parse.
+ * Source registry — empty until real, verified sources are added, so the
+ * scheduled run is a clean no-op rather than logging failures.
  *
- * The example adapters below return nothing; they're templates. Replace the
- * `url`/`pages` with a real listings page to switch the board on.
+ * To add a source:
+ *  - Sites that publish schema.org JobPosting JSON-LD (most modern career
+ *    pages): `createJsonLdSource({ id, name, url })` from ./sources/jsonld.
+ *  - Sites without structured data: copy ./sources/example-association.ts and
+ *    hand-parse, then add it here.
+ *
+ * Example:
+ *   import { createJsonLdSource } from "./sources/jsonld";
+ *   const ADAPTERS = [createJsonLdSource({ id, name, url })];
  */
-const ADAPTERS: SourceAdapter[] = [
-  createJsonLdSource({
-    id: "example-jsonld",
-    name: "Example Marine Trades Association (JSON-LD)",
-    url: "https://example.org/careers",
-  }),
-  exampleAssociation,
-];
+const ADAPTERS: SourceAdapter[] = [];
 
 /**
  * Aggregation entry point — run on a schedule (cron / GitHub Action):
