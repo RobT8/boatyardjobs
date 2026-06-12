@@ -8,6 +8,8 @@ name: Aggregate jobs
 #   SUPABASE_SERVICE_ROLE_KEY  the project's service_role secret (NOT the
 #                              publishable key — the pipeline inserts published
 #                              jobs, which RLS only allows the service role to do)
+#   ADZUNA_APP_ID              free from https://developer.adzuna.com
+#   ADZUNA_APP_KEY             free from https://developer.adzuna.com
 
 on:
   schedule:
@@ -29,4 +31,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
         run: npm run aggregate

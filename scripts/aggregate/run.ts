@@ -1,21 +1,22 @@
 import { upsertSourcedJob, expireMissingFromSource } from "../../src/lib/jobs";
 import type { SourceAdapter } from "./types";
+import { adzunaSource } from "./sources/adzuna";
 
 /**
- * Source registry — empty until real, verified sources are added, so the
- * scheduled run is a clean no-op rather than logging failures.
+ * Source registry. Each source is only enabled when its credentials are present,
+ * so a run with no configured sources is a clean no-op.
  *
- * To add a source:
+ * To add more:
  *  - Sites that publish schema.org JobPosting JSON-LD (most modern career
  *    pages): `createJsonLdSource({ id, name, url })` from ./sources/jsonld.
  *  - Sites without structured data: copy ./sources/example-association.ts and
  *    hand-parse, then add it here.
- *
- * Example:
- *   import { createJsonLdSource } from "./sources/jsonld";
- *   const ADAPTERS = [createJsonLdSource({ id, name, url })];
  */
 const ADAPTERS: SourceAdapter[] = [];
+
+if (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) {
+  ADAPTERS.push(adzunaSource());
+}
 
 /**
  * Aggregation entry point — run on a schedule (cron / GitHub Action):
