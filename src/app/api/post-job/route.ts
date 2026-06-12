@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const salaryMin = parseInt(get("salary_min"), 10);
   const salaryMax = parseInt(get("salary_max"), 10);
 
-  insertJob({
+  await insertJob({
     title,
     company,
     city,

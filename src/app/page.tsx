@@ -7,10 +7,13 @@ import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const { jobs, total } = listJobs({ limit: 8 });
-  const states = countByState().slice(0, 10);
-  const categories = countByCategory();
+export default async function HomePage() {
+  const [{ jobs, total }, allStates, categories] = await Promise.all([
+    listJobs({ limit: 8 }),
+    countByState(),
+    countByCategory(),
+  ]);
+  const states = allStates.slice(0, 10);
 
   return (
     <>

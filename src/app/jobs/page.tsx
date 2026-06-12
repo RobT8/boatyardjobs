@@ -21,7 +21,7 @@ const PAGE_SIZE = 20;
 export default async function JobsPage({ searchParams }: Props) {
   const { q, state, category, page } = await searchParams;
   const pageNum = Math.max(1, parseInt(page ?? "1", 10) || 1);
-  const { jobs, total } = listJobs({
+  const { jobs, total } = await listJobs({
     q,
     state,
     category,

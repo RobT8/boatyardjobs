@@ -26,7 +26,7 @@ export default async function RoleJobsPage({ params }: Props) {
   const match = roleFromSlug(role);
   if (!match) notFound();
 
-  const { jobs, total } = listJobs({ category: match.slug, limit: 100 });
+  const { jobs, total } = await listJobs({ category: match.slug, limit: 100 });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">

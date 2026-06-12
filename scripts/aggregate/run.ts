@@ -49,13 +49,13 @@ async function main() {
     let srcCreated = 0;
     let srcUpdated = 0;
     for (const job of jobs) {
-      const result = upsertSourcedJob({ ...job, source: adapter.id });
+      const result = await upsertSourcedJob({ ...job, source: adapter.id });
       if (job.source_url) seenUrls.push(job.source_url);
       if (result === "created") srcCreated++;
       else if (result === "updated") srcUpdated++;
     }
 
-    const srcExpired = expireMissingFromSource(adapter.id, seenUrls);
+    const srcExpired = await expireMissingFromSource(adapter.id, seenUrls);
     created += srcCreated;
     updated += srcUpdated;
     expired += srcExpired;

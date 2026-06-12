@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AlertSignupForm from "@/components/AlertSignupForm";
-import { formatSalary, getJobBySlug } from "@/lib/jobs";
+import { formatSalary, getJobBySlug, type Job } from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const job = getJobBySlug(slug);
+  const job = await getJobBySlug(slug);
   if (!job) return { title: "Job not found" };
   return {
     title: `${job.title} — ${job.company}, ${job.city} ${job.state}`,
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /** schema.org JobPosting markup — required for Google for Jobs inclusion. */
-function jobPostingJsonLd(job: NonNullable<ReturnType<typeof getJobBySlug>>) {
+function jobPostingJsonLd(job: Job) {
   const ld: Record<string, unknown> = {
     "@context": "https://schema.org/",
     "@type": "JobPosting",
@@ -62,7 +62,7 @@ function jobPostingJsonLd(job: NonNullable<ReturnType<typeof getJobBySlug>>) {
 
 export default async function JobDetailPage({ params }: Props) {
   const { slug } = await params;
-  const job = getJobBySlug(slug);
+  const job = await getJobBySlug(slug);
   if (!job || job.status !== "published") notFound();
 
   const role = ROLE_CATEGORIES.find((r) => r.slug === job.category);

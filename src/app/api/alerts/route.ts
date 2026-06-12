@@ -10,6 +10,6 @@ export async function POST(req: Request) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     redirect("/alerts?error=invalid-email");
   }
-  createAlert(email, state, category);
+  await createAlert(email, state, category);
   redirect("/alerts?subscribed=1");
 }

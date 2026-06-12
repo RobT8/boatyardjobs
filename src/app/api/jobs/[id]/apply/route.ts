@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getDb } from "@/lib/db";
-import { recordApplyClick, type Job } from "@/lib/jobs";
+import { getJobById, recordApplyClick } from "@/lib/jobs";
 
 /**
  * The apply click is the board's core metric: it's what we report to employers
@@ -9,12 +8,10 @@ import { recordApplyClick, type Job } from "@/lib/jobs";
  */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const job = getDb().prepare("SELECT * FROM jobs WHERE id = ?").get(Number(id)) as
-    | Job
-    | undefined;
+  const job = await getJobById(Number(id));
   if (!job) redirect("/jobs");
 
-  recordApplyClick(job.id);
+  await recordApplyClick(job.id);
 
   if (job.source_url) redirect(job.source_url);
   if (job.apply_email)

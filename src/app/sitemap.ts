@@ -4,9 +4,9 @@ import { ROLE_CATEGORIES, stateSlug } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.SITE_URL ?? "https://boatyardjobs.com";
-  const { jobs } = listJobs({ limit: 1000 });
+  const [{ jobs }, states] = await Promise.all([listJobs({ limit: 1000 }), countByState()]);
 
   return [
     { url: base, changeFrequency: "daily", priority: 1 },
@@ -18,7 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "daily" as const,
       priority: 0.8,
     })),
-    ...countByState().map(({ state }) => ({
+    ...states.map(({ state }) => ({
       url: `${base}/jobs/state/${stateSlug(state)}`,
       changeFrequency: "daily" as const,
       priority: 0.8,

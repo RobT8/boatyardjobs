@@ -26,7 +26,7 @@ export default async function StateJobsPage({ params }: Props) {
   const match = stateFromSlug(state);
   if (!match) notFound();
 
-  const { jobs, total } = listJobs({ state: match.code, limit: 100 });
+  const { jobs, total } = await listJobs({ state: match.code, limit: 100 });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
