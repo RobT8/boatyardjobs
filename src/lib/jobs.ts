@@ -100,20 +100,6 @@ export async function recordApplyClick(jobId: number): Promise<void> {
   if (error) throw error;
 }
 
-export async function createAlert(
-  email: string,
-  state?: string | null,
-  category?: string | null
-): Promise<void> {
-  const { error } = await getDb()
-    .from("alerts")
-    .upsert(
-      { email, state: state || null, category: category || null },
-      { onConflict: "email,state,category", ignoreDuplicates: true }
-    );
-  if (error) throw error;
-}
-
 export interface NewJobInput {
   title: string;
   company: string;

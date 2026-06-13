@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "aggregate": "tsx --env-file-if-exists=.env.local scripts/aggregate/run.ts",
+    "digest": "tsx --env-file-if-exists=.env.local scripts/alerts/send-digest.ts",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
     "test": "tsx scripts/aggregate/parse.test.ts"
   },

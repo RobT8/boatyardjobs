@@ -1,0 +1,34 @@
+name: Send job alerts
+
+# Emails confirmed subscribers their new matching jobs. Runs daily after the
+# aggregation cron, and on demand.
+#
+# Required repository secrets (in addition to the aggregation ones):
+#   RESEND_API_KEY     from resend.com
+#   ALERTS_FROM_EMAIL  e.g. "BoatyardJobs <alerts@yourdomain.com>" (verified in Resend)
+#   SITE_URL           e.g. https://boatyardjobs.vercel.app (for links in emails)
+
+on:
+  schedule:
+    - cron: "30 7 * * *" # daily at 07:30 UTC, ~30 min after aggregation
+  workflow_dispatch: {}
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Send alert digests
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERTS_FROM_EMAIL: ${{ secrets.ALERTS_FROM_EMAIL }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: npm run digest
