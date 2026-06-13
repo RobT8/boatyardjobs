@@ -14,6 +14,11 @@ export const metadata: Metadata = {
   },
   description:
     "Marine trades jobs from across the US, in one place: marine technicians, electricians, riggers, yard staff and more at boatyards, marinas and dealerships nationwide.",
+  // Google Search Console ownership check. Set GOOGLE_SITE_VERIFICATION to the
+  // token Google gives you (HTML-tag method); omitted in envs where it's unset.
+  ...(process.env.GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+    : {}),
 };
 
 function SiteHeader() {

@@ -30,6 +30,14 @@ function jobPostingJsonLd(job: Job) {
     description: `<p>${job.description}</p>`,
     datePosted: job.posted_at.slice(0, 10),
     employmentType: job.employment_type,
+    // Google uses identifier to de-duplicate the same posting across boards.
+    identifier: {
+      "@type": "PropertyValue",
+      name: job.company,
+      value: String(job.id),
+    },
+    // True when the candidate applies on our site rather than an external listing.
+    directApply: job.source === "direct",
     hiringOrganization: {
       "@type": "Organization",
       name: job.company,
