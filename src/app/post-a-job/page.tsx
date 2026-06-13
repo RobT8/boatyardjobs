@@ -1,22 +1,24 @@
 import type { Metadata } from "next";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
+import { isStripeEnabled, jobPostPriceLabel } from "@/lib/stripe";
 
 export const metadata: Metadata = {
   title: "Post a Job",
-  description: "Post a marine trades job — free during launch.",
+  description: "Post a marine trades job to reach candidates in the recreational marine trades.",
 };
 
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ submitted?: string; error?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; canceled?: string }>;
 }
 
 const inputCls =
   "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-navy-600 focus:outline-none";
 
 export default async function PostJobPage({ searchParams }: Props) {
-  const { submitted, error } = await searchParams;
+  const { submitted, error, canceled } = await searchParams;
+  const paid = isStripeEnabled();
 
   if (submitted) {
     return (
@@ -35,13 +37,21 @@ export default async function PostJobPage({ searchParams }: Props) {
     <div className="mx-auto max-w-2xl px-4 py-12">
       <h1 className="text-3xl font-bold text-navy-800">Post a Job</h1>
       <p className="mt-2 text-slate-600">
-        Free during launch. Every listing is reviewed before publishing.
+        {paid
+          ? `Reach candidates across the US marine trades. ${jobPostPriceLabel()} for a 30-day listing — secure checkout via Stripe.`
+          : "Free during launch. Every listing is reviewed before publishing."}
       </p>
 
       {error && (
         <p className="mt-6 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           Please check the form — every field except salary is required, and the description
           needs at least a few sentences.
+        </p>
+      )}
+      {canceled && (
+        <p className="mt-6 rounded-md bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          Payment canceled — your listing wasn&apos;t posted. You can complete the details and try
+          again below.
         </p>
       )}
 
@@ -124,7 +134,7 @@ export default async function PostJobPage({ searchParams }: Props) {
           type="submit"
           className="rounded-md bg-brass-400 px-8 py-3 font-semibold text-navy-900 hover:bg-brass-500"
         >
-          Submit listing
+          {paid ? `Continue to payment — ${jobPostPriceLabel()}` : "Submit listing"}
         </button>
       </form>
     </div>

@@ -160,12 +160,37 @@ async function uniqueSlug(base: string): Promise<string> {
   }
 }
 
-export async function insertJob(input: NewJobInput): Promise<string> {
+export async function insertJob(input: NewJobInput): Promise<{ id: number; slug: string }> {
   const base = slugify(`${input.title} ${input.company} ${input.city} ${input.state}`);
   const slug = await uniqueSlug(base);
-  const { error } = await getDb().from("jobs").insert(toRow(input, slug));
+  const { data, error } = await getDb()
+    .from("jobs")
+    .insert(toRow(input, slug))
+    .select("id")
+    .single();
   if (error) throw error;
-  return slug;
+  return { id: data.id as number, slug };
+}
+
+/** Record the Stripe Checkout session that will pay for a job. */
+export async function setJobStripeSession(id: number, sessionId: string): Promise<void> {
+  const { error } = await getDb().from("jobs").update({ stripe_session_id: sessionId }).eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Publish a paid listing. Idempotent: only flips a still-'unpaid' job to
+ * published (so repeated webhook deliveries are safe). Returns whether it acted.
+ */
+export async function publishPaidJob(jobId: number): Promise<boolean> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .update({ status: "published", posted_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .eq("status", "unpaid")
+    .select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 export type UpsertResult = "created" | "updated" | "unchanged";
