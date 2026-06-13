@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import Link from "next/link";
+import PageViewTracker from "@/components/PageViewTracker";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
@@ -85,6 +86,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className={`${geist.className} flex min-h-full flex-col`}>
+        <PageViewTracker />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />
