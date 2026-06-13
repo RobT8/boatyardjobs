@@ -19,7 +19,8 @@ export default function AlertSignupForm({ state, category, compact }: Props) {
         name="email"
         required
         placeholder="you@example.com"
-        className="min-w-48 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-navy-600 focus:outline-none"
+        aria-label="Your email"
+        className="min-w-48 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-navy-600 focus:outline-none"
       />
       {compact ? (
         <>
@@ -28,13 +29,13 @@ export default function AlertSignupForm({ state, category, compact }: Props) {
         </>
       ) : (
         <>
-          <select name="state" defaultValue={state ?? ""} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+          <select name="state" defaultValue={state ?? ""} aria-label="State" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-navy-600 focus:outline-none">
             <option value="">All states</option>
             {Object.entries(US_STATES).map(([code, name]) => (
               <option key={code} value={code}>{name}</option>
             ))}
           </select>
-          <select name="category" defaultValue={category ?? ""} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+          <select name="category" defaultValue={category ?? ""} aria-label="Role" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-navy-600 focus:outline-none">
             <option value="">All roles</option>
             {ROLE_CATEGORIES.map((r) => (
               <option key={r.slug} value={r.slug}>{r.label}</option>

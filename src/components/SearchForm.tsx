@@ -14,13 +14,15 @@ export default function SearchForm({ q, state, category }: Props) {
         type="search"
         name="q"
         defaultValue={q}
+        aria-label="Search jobs"
         placeholder="Search title, company, city…"
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-navy-600 focus:outline-none"
+        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-navy-600 focus:outline-none"
       />
       <select
         name="state"
         defaultValue={state ?? ""}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+        aria-label="Filter by state"
+        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-navy-600 focus:outline-none"
       >
         <option value="">All states</option>
         {Object.entries(US_STATES).map(([code, name]) => (
@@ -32,7 +34,8 @@ export default function SearchForm({ q, state, category }: Props) {
       <select
         name="category"
         defaultValue={category ?? ""}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+        aria-label="Filter by role"
+        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-navy-600 focus:outline-none"
       >
         <option value="">All roles</option>
         {ROLE_CATEGORIES.map((r) => (
