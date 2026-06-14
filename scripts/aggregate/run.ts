@@ -84,32 +84,36 @@ async function main() {
 
   for (const adapter of ADAPTERS) {
     console.log(`[${adapter.id}] fetching…`);
-    let jobs;
+    // The whole per-source unit — fetch, upsert, and expire — is isolated: a
+    // failure anywhere here (including a DB write) is logged and skipped so it
+    // can never abort the run and starve the remaining sources. (The upsert and
+    // expire calls used to sit outside this guard, so a single thrown Supabase
+    // error would crash the entire pipeline.)
     try {
-      jobs = await adapter.fetchJobs();
+      const jobs = await adapter.fetchJobs();
+
+      const seenUrls: string[] = [];
+      let srcCreated = 0;
+      let srcUpdated = 0;
+      for (const job of jobs) {
+        const result = await upsertSourcedJob({ ...job, source: adapter.id });
+        if (job.source_url) seenUrls.push(job.source_url);
+        if (result === "created") srcCreated++;
+        else if (result === "updated") srcUpdated++;
+      }
+
+      const srcExpired = await expireMissingFromSource(adapter.id, seenUrls);
+      created += srcCreated;
+      updated += srcUpdated;
+      expired += srcExpired;
+      console.log(
+        `[${adapter.id}] done — ${jobs.length} fetched ` +
+          `(${srcCreated} new, ${srcUpdated} updated, ${srcExpired} expired)`
+      );
     } catch (err) {
       console.error(`[${adapter.id}] FAILED, skipping (listings left untouched):`, err);
       continue;
     }
-
-    const seenUrls: string[] = [];
-    let srcCreated = 0;
-    let srcUpdated = 0;
-    for (const job of jobs) {
-      const result = await upsertSourcedJob({ ...job, source: adapter.id });
-      if (job.source_url) seenUrls.push(job.source_url);
-      if (result === "created") srcCreated++;
-      else if (result === "updated") srcUpdated++;
-    }
-
-    const srcExpired = await expireMissingFromSource(adapter.id, seenUrls);
-    created += srcCreated;
-    updated += srcUpdated;
-    expired += srcExpired;
-    console.log(
-      `[${adapter.id}] done — ${jobs.length} fetched ` +
-        `(${srcCreated} new, ${srcUpdated} updated, ${srcExpired} expired)`
-    );
   }
 
   console.log(
@@ -117,4 +121,9 @@ async function main() {
   );
 }
 
-main();
+main().catch((err) => {
+  // Surface the real reason instead of Node's bare "#<Object>" for a thrown
+  // Supabase/PostgREST error object, and exit non-zero so CI flags the run.
+  console.error("Aggregation crashed:", err);
+  process.exitCode = 1;
+});
