@@ -11,6 +11,7 @@ the "Add more employers" note there).
 | Greenhouse             | `createGreenhouseSource` | public boards-api JSON          | no   |
 | Workday (CXS)          | `createWorkdaySource`    | public CXS list + detail JSON   | no   |
 | ADP Workforce Now      | `createAdpSource`        | public career-center JSON       | no   |
+| UKG Ready (SaaShr)     | `createUkgSource`        | careers portal + JSON-LD detail | no   |
 | schema.org JSON-LD     | `createJsonLdSource`     | scrape ld+json off a page       | no   |
 | Adzuna (aggregator)    | `adzunaSource`           | official API (env keys)         | yes  |
 | Lever                  | _not built yet_          | public postings API (`api.lever.co/v0/postings/{org}`) | no |
@@ -27,18 +28,25 @@ the "Add more employers" note there).
   confirm the JSON field shape on the first live run (the parser is tolerant of
   the known tenant variants but hasn't been run against the live payload).
 
-### Safe Harbor Marinas — BLOCKED (ATS unconfirmed)
-- Careers page https://shmarinas.com/careers/ is unreachable from this
-  environment (egress proxy fails the TLS handshake; render proxies 403/503), so
-  the embedded ATS could not be confirmed.
-- Ruled out: Lever and Greenhouse (404 for `safeharbor*` / `shmarinas` tokens).
-- Workday / iCIMS / UKG probes were inconclusive (those platforms return
-  403/406/500 to bare requests regardless of whether a tenant exists).
-- **Next step:** obtain the apply-portal URL (a `recruiting.*` / `*.myworkdayjobs.com`
-  / `*.icims.com` / `workforcenow.adp.com?cid=...` link from the live careers
-  page) and register it with the matching factory.
+### Safe Harbor Marinas — DONE (pending egress)
+- **ATS: UKG Ready** (Kronos Workforce Ready / SaaShr). safeharbor.com/careers
+  redirects into the portal at
+  `https://secure4.saashr.com/ta/6166382.careers?CareersSearch=`
+  (listing) with per-job detail at `?ShowJob={requisitionId}`.
+- Adapter: `sources/ukg.ts`, registered in `run.ts` as `ukg-safeharbor`.
+- **Blocker:** `secure4.saashr.com` is not in the aggregation network allowlist
+  (verified unreachable from the run environment). Add that host, then confirm on
+  the first live run that detail pages carry JSON-LD and the listing isn't
+  paginated past the first page.
 
 ## Verifications (this environment)
 - `api.lever.co` reachable — HTTP 200 (`/v0/postings/leverdemo`).
-- `workforcenow.adp.com` — NOT in egress allowlist (needs adding).
-- `shmarinas.com` — egress TLS handshake fails (`TLSV1_ALERT_PROTOCOL_VERSION`).
+- `workforcenow.adp.com` — NOT in egress allowlist (needs adding for Suntex).
+- `secure4.saashr.com` — NOT in egress allowlist (needs adding for Safe Harbor).
+- `safeharbor.com` / `shmarinas.com` — NOT in egress allowlist / TLS handshake
+  fails; can't be fetched from here (ATS identified via the user-supplied portal
+  URL instead).
+
+## Egress allowlist — hosts to add before these sources fetch
+- `workforcenow.adp.com` (Suntex / ADP)
+- `secure4.saashr.com` (Safe Harbor / UKG Ready)

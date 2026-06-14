@@ -3,6 +3,7 @@ import type { SourceAdapter } from "./types";
 import { adzunaSource } from "./sources/adzuna";
 import { createAdpSource } from "./sources/adp";
 import { createGreenhouseSource } from "./sources/greenhouse";
+import { createUkgSource } from "./sources/ukg";
 import { createWorkdaySource } from "./sources/workday";
 
 /**
@@ -15,6 +16,7 @@ import { createWorkdaySource } from "./sources/workday";
  *  - Greenhouse board: createGreenhouseSource({ id, name, company, token }).
  *  - Workday careers:  createWorkdaySource({ id, name, company, host, tenant, site }).
  *  - ADP Workforce Now: createAdpSource({ id, name, company, cid }).
+ *  - UKG Ready careers:  createUkgSource({ id, name, company, host, cid }).
  *  - Pages with schema.org JobPosting JSON-LD: createJsonLdSource (./sources/jsonld).
  */
 const ADAPTERS: SourceAdapter[] = [
@@ -46,6 +48,17 @@ const ADAPTERS: SourceAdapter[] = [
     name: "Suntex Marinas",
     company: "Suntex Marinas",
     cid: "08f6f0d8-fe33-401f-a518-03fc32c3ad35",
+  }),
+  // Safe Harbor Marinas runs UKG Ready (safeharbor.com/careers redirects into
+  // secure4.saashr.com/ta/6166382.careers).
+  // NOTE: requires `secure4.saashr.com` in the aggregation network allowlist;
+  // until then this adapter fails fast and is skipped (other sources untouched).
+  createUkgSource({
+    id: "ukg-safeharbor",
+    name: "Safe Harbor Marinas",
+    company: "Safe Harbor Marinas",
+    host: "secure4.saashr.com",
+    cid: "6166382",
   }),
 ];
 
