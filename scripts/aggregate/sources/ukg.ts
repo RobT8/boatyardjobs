@@ -1,5 +1,6 @@
 import type { SourceAdapter } from "../types";
 import { USER_AGENT } from "../types";
+import { assertCrawlable, isAllowed } from "../robots";
 import { parseJobsFromHtml } from "../parse";
 import { isTradeRole } from "../../../src/lib/taxonomy";
 import type { NewJobInput } from "../../../src/lib/jobs";
@@ -57,7 +58,9 @@ export function createUkgSource(config: UkgConfig): SourceAdapter {
     url: careers("CareersSearch=&lang=en-US"),
     async fetchJobs(): Promise<NewJobInput[]> {
       // 1) listing page -> the set of requisition ids (ShowJob=NNN)
-      const listRes = await fetch(careers("CareersSearch=&lang=en-US"), { headers });
+      const listUrl = careers("CareersSearch=&lang=en-US");
+      await assertCrawlable(listUrl); // honor robots.txt
+      const listRes = await fetch(listUrl, { headers });
       if (!listRes.ok) throw new Error(`ukg ${config.cid} list -> HTTP ${listRes.status}`);
       const listHtml = await listRes.text();
 
@@ -78,6 +81,7 @@ export function createUkgSource(config: UkgConfig): SourceAdapter {
       for (const id of ids) {
         const pageUrl = careers(`ShowJob=${id}&lang=en-US`);
         try {
+          if (!(await isAllowed(pageUrl))) continue; // robots.txt
           const res = await fetch(pageUrl, { headers });
           if (res.ok) {
             const html = await res.text();

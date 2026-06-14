@@ -1,4 +1,5 @@
 import type { SourceAdapter } from "../types";
+import { assertCrawlable, isAllowed } from "../robots";
 import { htmlToText } from "../parse";
 import type { NewJobInput } from "../../../src/lib/jobs";
 import {
@@ -124,6 +125,7 @@ export function createAdpSource(config: AdpConfig): SourceAdapter {
     url: applyUrl(config.cid, ccId, ""),
     async fetchJobs(): Promise<NewJobInput[]> {
       // 1) page through the requisition list
+      await assertCrawlable(`${BASE}/job-requisitions?${common}`); // honor robots.txt
       const reqs: any[] = [];
       for (let skip = 0; skip < MAX_JOBS; skip += PAGE) {
         const url = `${BASE}/job-requisitions?${common}&%24top=${PAGE}&%24skip=${skip}`;
@@ -161,8 +163,9 @@ export function createAdpSource(config: AdpConfig): SourceAdapter {
         );
         if (description.length < 20 && reqId) {
           try {
-            const res = await fetch(`${BASE}/job-requisitions/${encodeURIComponent(reqId)}?${common}`, { headers });
-            if (res.ok) {
+            const detailUrl = `${BASE}/job-requisitions/${encodeURIComponent(reqId)}?${common}`;
+            const res = (await isAllowed(detailUrl)) ? await fetch(detailUrl, { headers }) : null;
+            if (res?.ok) {
               const detail: any = await res.json();
               req = detail?.jobRequisition ?? detail ?? listItem;
               description = htmlToText(

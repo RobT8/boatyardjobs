@@ -18,6 +18,11 @@ import {
  * normalize results into our schema.
  *
  * Requires env: ADZUNA_APP_ID, ADZUNA_APP_KEY (free at developer.adzuna.com).
+ *
+ * NOTE: this adapter intentionally does NOT consult robots.txt. We reach Adzuna
+ * through its official, key-authenticated Jobs API under a usage agreement —
+ * robots.txt governs crawling, not licensed API access (api.adzuna.com/robots.txt
+ * disallows everything, which would wrongly disable an authorized integration).
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

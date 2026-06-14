@@ -6,6 +6,9 @@ import {
   jobPostingToInput,
   parseJobsFromHtml,
 } from "./parse";
+import { parseRobots, isPathAllowed } from "./robots";
+
+const allowed = (txt: string, path: string) => isPathAllowed(parseRobots(txt), path);
 
 /**
  * Offline tests for the JSON-LD parser. Run with: npm test
@@ -127,6 +130,39 @@ test("ItemList of postings is flattened", () => {
   const jobs = parseJobsFromHtml(html, { source: "x" });
   assert.equal(jobs.length, 1);
   assert.equal(jobs[0].category, "detailer");
+});
+
+test("robots: empty / no rules allows everything", () => {
+  assert.equal(allowed("", "/anything"), true);
+  assert.equal(allowed("User-agent: *\nDisallow:", "/anything"), true);
+});
+
+test("robots: Disallow: / blocks all", () => {
+  assert.equal(allowed("User-agent: *\nDisallow: /", "/v1/api"), false);
+});
+
+test("robots: only the named path is blocked", () => {
+  const txt = "User-agent: *\nDisallow: /embed/";
+  assert.equal(allowed(txt, "/embed/widget"), false);
+  assert.equal(allowed(txt, "/v1/boards/acme/jobs"), true);
+});
+
+test("robots: longest match wins, Allow breaks ties", () => {
+  const txt = "User-agent: *\nDisallow: /careers\nAllow: /careers/job";
+  assert.equal(allowed(txt, "/careers/list"), false); // only Disallow matches
+  assert.equal(allowed(txt, "/careers/job/123"), true); // longer Allow wins
+});
+
+test("robots: our token's group overrides the wildcard group", () => {
+  const txt =
+    "User-agent: *\nDisallow: /\n\nUser-agent: BoatyardJobsBot\nDisallow: /private/";
+  assert.equal(allowed(txt, "/careers"), true); // our group, not the * block-all
+  assert.equal(allowed(txt, "/private/x"), false);
+});
+
+test("robots: wildcard and end-anchor patterns", () => {
+  assert.equal(allowed("User-agent: *\nDisallow: /*.pdf$", "/files/a.pdf"), false);
+  assert.equal(allowed("User-agent: *\nDisallow: /*.pdf$", "/files/a.pdf?x=1"), true);
 });
 
 console.log(`\n${passed} assertions passed.`);

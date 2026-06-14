@@ -1,4 +1,5 @@
 import type { SourceAdapter } from "../types";
+import { assertCrawlable } from "../robots";
 import { htmlToText } from "../parse";
 import type { NewJobInput } from "../../../src/lib/jobs";
 import {
@@ -57,6 +58,7 @@ export function createGreenhouseSource(config: GreenhouseConfig): SourceAdapter 
     url: `https://job-boards.greenhouse.io/${config.token}`,
     async fetchJobs(): Promise<NewJobInput[]> {
       const url = `https://boards-api.greenhouse.io/v1/boards/${config.token}/jobs?content=true`;
+      await assertCrawlable(url); // honor robots.txt
       const res = await fetch(url, { headers: { Accept: "application/json" } });
       if (!res.ok) throw new Error(`greenhouse ${config.token} -> HTTP ${res.status}`);
       const json: any = await res.json();

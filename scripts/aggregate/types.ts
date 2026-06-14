@@ -1,4 +1,5 @@
 import type { NewJobInput } from "../../src/lib/jobs";
+import { assertCrawlable } from "./robots";
 
 /**
  * A source adapter fetches listings from one upstream site (state marine trades
@@ -23,6 +24,7 @@ export const USER_AGENT =
   "BoatyardJobsBot/0.1 (+https://boatyardjobs.com/about-our-crawler)";
 
 export async function politeFetch(url: string): Promise<string> {
+  await assertCrawlable(url); // honor the site's robots.txt before fetching
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
   if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
   await new Promise((r) => setTimeout(r, 2000));
