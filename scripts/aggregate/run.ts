@@ -12,6 +12,7 @@ import { createWorkdaySource } from "./sources/workday";
  *
  * Add more employers:
  *  - Greenhouse board: createGreenhouseSource({ id, name, company, token }).
+ *  - Lever board:      createLeverSource({ id, name, company, site }).
  *  - Workday careers:  createWorkdaySource({ id, name, company, host, tenant, site }).
  *  - Pages with schema.org JobPosting JSON-LD: createJsonLdSource (./sources/jsonld).
  */
