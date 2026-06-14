@@ -1,6 +1,7 @@
 import { upsertSourcedJob, expireMissingFromSource } from "../../src/lib/jobs";
 import type { SourceAdapter } from "./types";
 import { adzunaSource } from "./sources/adzuna";
+import { createAdpSource } from "./sources/adp";
 import { createGreenhouseSource } from "./sources/greenhouse";
 import { createWorkdaySource } from "./sources/workday";
 
@@ -13,6 +14,7 @@ import { createWorkdaySource } from "./sources/workday";
  * Add more employers:
  *  - Greenhouse board: createGreenhouseSource({ id, name, company, token }).
  *  - Workday careers:  createWorkdaySource({ id, name, company, host, tenant, site }).
+ *  - ADP Workforce Now: createAdpSource({ id, name, company, cid }).
  *  - Pages with schema.org JobPosting JSON-LD: createJsonLdSource (./sources/jsonld).
  */
 const ADAPTERS: SourceAdapter[] = [
@@ -35,6 +37,15 @@ const ADAPTERS: SourceAdapter[] = [
     host: "brunswick.wd1.myworkdayjobs.com",
     tenant: "brunswick",
     site: "search",
+  }),
+  // Suntex Marinas runs ADP Workforce Now (cid from suntex.com/careers).
+  // NOTE: requires `workforcenow.adp.com` in the aggregation network allowlist;
+  // until then this adapter fails fast and is skipped (other sources untouched).
+  createAdpSource({
+    id: "adp-suntex",
+    name: "Suntex Marinas",
+    company: "Suntex Marinas",
+    cid: "08f6f0d8-fe33-401f-a518-03fc32c3ad35",
   }),
 ];
 
