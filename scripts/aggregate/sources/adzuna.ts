@@ -22,17 +22,41 @@ import {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// Cover every role category in our taxonomy plus high-volume generics. Each
+// result is still gated by isTradeRole(title) + MARINE_RE below, so broad terms
+// can't pull in off-topic listings.
 const SEARCH_TERMS = [
+  // technician / mechanic (highest volume)
   "marine technician",
   "boat mechanic",
-  "marine electrician",
+  "marine mechanic",
+  "marine diesel mechanic",
   "outboard technician",
+  "boat technician",
+  // electrical
+  "marine electrician",
+  "marine electronics installer",
+  // fiberglass & gelcoat
+  "fiberglass boat repair",
+  "gelcoat technician",
+  "boat builder",
+  // rigging
+  "sailboat rigger",
+  // canvas & upholstery
+  "marine canvas",
+  "marine upholstery",
+  // detailing
+  "boat detailer",
+  // yard & marina
   "boatyard",
   "marina technician",
+  "marina dockhand",
+  "travel lift operator",
+  // service desk
+  "marine service writer",
+  "marine service manager",
+  // general
   "yacht service",
-  "sailboat rigger",
-  "marine canvas",
-  "boat detailer",
 ];
 
 // A result must look marine-related, and not be a false-positive ("Marine Corps").
@@ -40,7 +64,10 @@ const MARINE_RE = /\b(boat|boats|marine|yacht|marina|outboard|sterndrive|vessel|
 const EXCLUDE_RE = /\b(marine corps|submarine|marine biolog|aquarium|merchant marine|naval)\b/i;
 
 const RESULTS_PER_PAGE = 50;
-const PAGES_PER_TERM = 1;
+// Deepen pagination for high-volume terms. Narrow terms stop early (see the
+// short-page break below), so this only spends extra API calls where there are
+// actually more results to fetch.
+const PAGES_PER_TERM = 3;
 
 async function delay(ms: number) {
   await new Promise((r) => setTimeout(r, ms));
@@ -119,10 +146,13 @@ export function adzunaSource(): SourceAdapter {
             break; // move on to the next term
           }
           const json: any = await res.json();
-          for (const r of json?.results ?? []) {
+          const results: any[] = json?.results ?? [];
+          for (const r of results) {
             const job = toInput(r);
             if (job?.source_url && !byUrl.has(job.source_url)) byUrl.set(job.source_url, job);
           }
+          // Last page for this term — no point requesting further pages.
+          if (results.length < RESULTS_PER_PAGE) break;
           await delay(1500); // be gentle on the API / stay within rate limits
         }
       }
