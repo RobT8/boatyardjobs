@@ -41,8 +41,7 @@ const ADAPTERS: SourceAdapter[] = [
     site: "search",
   }),
   // Suntex Marinas runs ADP Workforce Now (cid from suntex.com/careers).
-  // NOTE: requires `workforcenow.adp.com` in the aggregation network allowlist;
-  // until then this adapter fails fast and is skipped (other sources untouched).
+  // Live-verified: returns ~38 trade listings from 137 requisitions.
   createAdpSource({
     id: "adp-suntex",
     name: "Suntex Marinas",
@@ -51,8 +50,10 @@ const ADAPTERS: SourceAdapter[] = [
   }),
   // Safe Harbor Marinas runs UKG Ready (safeharbor.com/careers redirects into
   // secure4.saashr.com/ta/6166382.careers).
-  // NOTE: requires `secure4.saashr.com` in the aggregation network allowlist;
-  // until then this adapter fails fast and is skipped (other sources untouched).
+  // NOTE: secure4.saashr.com is reachable, but its robots.txt disallows all
+  // non-Google crawlers, so this adapter fails fast and is skipped every run
+  // (other sources untouched). Left registered on purpose — pending written
+  // permission from Safe Harbor, after which it can be exempted like Adzuna.
   createUkgSource({
     id: "ukg-safeharbor",
     name: "Safe Harbor Marinas",
