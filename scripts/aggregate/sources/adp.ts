@@ -90,12 +90,24 @@ function parseLocation(req: any): { city: string; state: string } | null {
     if (country && !/^(us|usa|united states)$/i.test(country)) continue;
 
     const sub = addr?.countrySubdivisionLevel1 ?? {};
-    const state = stateCodeFromRegion(
+    let state = stateCodeFromRegion(
       pick(sub?.codeValue, sub?.shortName, addr?.stateProvince, addr?.region)
     );
+    let city = pick(addr?.cityName, addr?.city);
+
+    // Many Suntex requisitions leave the structured address blank but carry the
+    // place in nameCode.shortName as "[Marina, ]City, ST, US". Recover from that
+    // when the address fields didn't yield a state.
+    if (!state) {
+      const sn = pick(loc?.nameCode?.shortName);
+      const m = sn.match(/([^,]+),\s*([A-Za-z]{2}),\s*US\s*$/);
+      if (m) {
+        state = stateCodeFromRegion(m[2]);
+        if (!city) city = m[1].trim();
+      }
+    }
     if (!state) continue;
-    const city = pick(addr?.cityName, addr?.city, loc?.nameCode?.shortName) || "—";
-    return { city, state };
+    return { city: city || "—", state };
   }
   return null;
 }
@@ -124,20 +136,34 @@ export function createAdpSource(config: AdpConfig): SourceAdapter {
     name: config.name,
     url: applyUrl(config.cid, ccId, ""),
     async fetchJobs(): Promise<NewJobInput[]> {
-      // 1) page through the requisition list
+      // 1) page through the requisition list.
+      //    NOTE: ADP caps a page at ~20 regardless of $top, and its FIRST page
+      //    can return fewer than the cap (e.g. 19) — so we must advance $skip by
+      //    the actual batch size and stop only on an empty batch or once we've
+      //    pulled the reported total. (A fixed-stride loop both stopped early on
+      //    that short first page and skipped the straddling requisition.)
       await assertCrawlable(`${BASE}/job-requisitions?${common}`); // honor robots.txt
       const reqs: any[] = [];
-      for (let skip = 0; skip < MAX_JOBS; skip += PAGE) {
+      const seenItemIds = new Set<string>();
+      let skip = 0;
+      let total = Infinity;
+      while (reqs.length < MAX_JOBS) {
         const url = `${BASE}/job-requisitions?${common}&%24top=${PAGE}&%24skip=${skip}`;
         const res = await fetch(url, { headers });
         if (!res.ok) throw new Error(`adp ${config.cid} list -> HTTP ${res.status}`);
         const json: any = await res.json();
         const batch: any[] = json?.jobRequisitions ?? json?.requisitionListItems ?? [];
-        reqs.push(...batch);
-        const total: number = Number(
-          json?.meta?.totalNumber ?? json?.meta?.totalRecords ?? 0
-        );
-        if (batch.length < PAGE || (total && skip + PAGE >= total)) break;
+        const reported = Number(json?.meta?.totalNumber ?? json?.meta?.totalRecords);
+        if (Number.isFinite(reported) && reported > 0) total = reported;
+        if (batch.length === 0) break;
+        for (const item of batch) {
+          const key = pick(item?.itemID, item?.requisitionId, item?.requisitionID);
+          if (key && seenItemIds.has(key)) continue; // defensive de-dupe
+          if (key) seenItemIds.add(key);
+          reqs.push(item);
+        }
+        skip += batch.length;
+        if (skip >= total) break;
         await delay(400);
       }
 
