@@ -34,7 +34,7 @@ export default function EmployersPage() {
       </h1>
       <p className="mt-3 max-w-2xl text-lg text-slate-600">
         BoatyardJobs is the dedicated job board for the US recreational marine trades. Post your
-        role in minutes — free while we&apos;re in launch.
+        role in minutes.
       </p>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
@@ -47,16 +47,16 @@ export default function EmployersPage() {
       </div>
 
       <div className="mt-12 rounded-lg bg-navy-800 p-8 text-center text-white">
-        <h2 className="text-2xl font-bold">Free job postings during launch</h2>
+        <h2 className="text-2xl font-bold">Reach marine trades candidates directly</h2>
         <p className="mx-auto mt-2 max-w-xl text-navy-100">
-          We&apos;re building the candidate audience right now. Early employers post free and keep
-          founding-customer pricing when paid plans arrive.
+          We&apos;re building the candidate audience right now — your listing reaches marine techs,
+          electricians, riggers and yard crew actively looking for their next role.
         </p>
         <Link
           href="/post-a-job"
           className="mt-6 inline-block rounded-md bg-brass-400 px-8 py-3 font-semibold text-navy-900 hover:bg-brass-500"
         >
-          Post a job — free
+          Post a job
         </Link>
       </div>
     </div>
