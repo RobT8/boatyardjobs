@@ -1,4 +1,5 @@
 import type { SourceAdapter } from "../types";
+import { assertCrawlable, isAllowed } from "../robots";
 import { htmlToText } from "../parse";
 import type { NewJobInput } from "../../../src/lib/jobs";
 import {
@@ -62,6 +63,7 @@ export function createWorkdaySource(config: WorkdayConfig): SourceAdapter {
     url: `https://${config.host}`,
     async fetchJobs(): Promise<NewJobInput[]> {
       // 1) page through the listing
+      await assertCrawlable(`${base}/jobs`); // honor robots.txt
       const postings: { externalPath: string }[] = [];
       for (let offset = 0; offset < MAX_JOBS; offset += PAGE) {
         const res = await fetch(`${base}/jobs`, {
@@ -82,6 +84,7 @@ export function createWorkdaySource(config: WorkdayConfig): SourceAdapter {
       const out: NewJobInput[] = [];
       for (const p of postings) {
         try {
+          if (!(await isAllowed(`${base}${p.externalPath}`))) continue; // robots.txt
           const res = await fetch(`${base}${p.externalPath}`, { headers });
           if (!res.ok) continue;
           const info: any = (await res.json())?.jobPostingInfo;
