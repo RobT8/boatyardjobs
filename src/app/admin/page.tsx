@@ -3,6 +3,13 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
 import { getAdminStats, type Bucket } from "@/lib/admin";
 import { listEmployerLeads } from "@/lib/leads";
+import {
+  getChannel,
+  listActiveAds,
+  listPendingCreatives,
+  mrrCents,
+  priceLabel,
+} from "@/lib/ads";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
@@ -56,7 +63,13 @@ function BarList({
 
 export default async function AdminPage() {
   if (!(await isAdmin())) redirect("/admin/login");
-  const [s, leads] = await Promise.all([getAdminStats(), listEmployerLeads()]);
+  const [s, leads, pendingAds, activeAds] = await Promise.all([
+    getAdminStats(),
+    listEmployerLeads(),
+    listPendingCreatives(),
+    listActiveAds(),
+  ]);
+  const mrr = mrrCents(activeAds);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -167,6 +180,102 @@ export default async function AdminPage() {
                   <td className="py-1.5 text-right text-slate-400">
                     {new Date(l.created_at).toLocaleDateString()}
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Advertising */}
+      <h2 className="mt-10 text-lg font-bold text-navy-800">
+        Advertising — {priceLabel(mrr)}/mo recurring
+      </h2>
+
+      {pendingAds.length > 0 && (
+        <div className="mt-3 rounded-lg border border-brass-400 bg-amber-50/40 p-4">
+          <h3 className="text-sm font-semibold text-navy-800">
+            Awaiting approval ({pendingAds.length})
+          </h3>
+          <div className="mt-3 space-y-4">
+            {pendingAds.map(({ creative, ad, advertiser }) => (
+              <div
+                key={creative.id}
+                className="flex flex-wrap items-start gap-4 rounded-md border border-slate-200 bg-white p-3"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={creative.image_url}
+                  alt="Pending banner"
+                  className="max-h-24 rounded border border-slate-200"
+                />
+                <div className="min-w-48 flex-1 text-sm">
+                  <p className="font-medium text-navy-800">{advertiser.company}</p>
+                  <p className="text-slate-500">
+                    {ad.channels.map((c) => getChannel(c)?.label ?? c).join(" + ")}
+                    {ad.target_state ? ` · ${ad.target_state}` : ""}
+                    {ad.target_category ? ` · ${ad.target_category}` : ""}
+                  </p>
+                  <a
+                    href={creative.target_url}
+                    target="_blank"
+                    rel="noopener"
+                    className="break-all text-xs text-navy-600 hover:underline"
+                  >
+                    {creative.target_url}
+                  </a>
+                </div>
+                <div className="flex gap-2">
+                  <form action={`/api/admin/ads/${creative.id}`} method="post">
+                    <input type="hidden" name="action" value="approve" />
+                    <button className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                      Approve
+                    </button>
+                  </form>
+                  <form action={`/api/admin/ads/${creative.id}`} method="post">
+                    <input type="hidden" name="action" value="reject" />
+                    <button className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+                      Reject
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="text-sm font-semibold text-navy-800">Live & paused ads</h3>
+        {activeAds.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-400">No ads sold yet.</p>
+        ) : (
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="pb-2">Advertiser</th>
+                <th className="pb-2">Slots</th>
+                <th className="pb-2">Plan</th>
+                <th className="pb-2">Status</th>
+                <th className="pb-2 text-right">Views</th>
+                <th className="pb-2 text-right">Clicks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeAds.map(({ ad, advertiser, stats }) => (
+                <tr key={ad.id} className="border-t border-slate-100">
+                  <td className="py-1.5 pr-2 font-medium text-navy-800">{advertiser.company}</td>
+                  <td className="py-1.5 pr-2 text-slate-500">
+                    {ad.channels.map((c) => getChannel(c)?.label ?? c).join(" + ")}
+                  </td>
+                  <td className="py-1.5 pr-2 text-slate-500">
+                    {ad.period_type === "recurring"
+                      ? `${priceLabel(ad.price_cents)}/mo`
+                      : `${priceLabel(ad.price_cents)} · ${ad.months}mo`}
+                  </td>
+                  <td className="py-1.5 pr-2 text-slate-500">{ad.status}</td>
+                  <td className="py-1.5 text-right text-navy-800">{stats.impressions}</td>
+                  <td className="py-1.5 text-right text-navy-800">{stats.clicks}</td>
                 </tr>
               ))}
             </tbody>

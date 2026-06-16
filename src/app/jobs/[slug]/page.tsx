@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AlertSignupForm from "@/components/AlertSignupForm";
+import SponsorSlot from "@/components/SponsorSlot";
 import { formatSalary, getJobBySlug, type Job } from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
@@ -152,6 +153,8 @@ export default async function JobDetailPage({ params }: Props) {
           </Link>
         </div>
       )}
+
+      <SponsorSlot state={job.state} category={job.category} />
 
       <div className="mt-12 rounded-lg bg-slate-50 p-6">
         <h2 className="font-semibold text-navy-800">

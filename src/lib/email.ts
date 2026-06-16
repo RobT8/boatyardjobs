@@ -96,6 +96,29 @@ export function employerLeadNotificationHtml(lead: {
     </p>`);
 }
 
+export function advertiserLoginHtml(dashboardUrl: string): string {
+  return wrap(`
+    <h1 style="font-size:18px;margin:0 0 12px">Your advertiser dashboard</h1>
+    <p style="margin:0 0 16px;color:#334155">
+      Tap below to view your ads, stats and billing on BoatyardJobs. The link is
+      private to you — don't share it.
+    </p>
+    <p style="margin:0 0 8px">
+      <a href="${dashboardUrl}" style="background:#c79a3b;color:#1a1407;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:6px;display:inline-block">
+        Open my dashboard
+      </a>
+    </p>`);
+}
+
+/** Sponsor banner block for the digest email. */
+export function sponsorBlockHtml(imageUrl: string, clickUrl: string): string {
+  return `
+    <div style="margin:20px 0 0;padding-top:14px;border-top:1px solid #eef2f7;text-align:center">
+      <p style="margin:0 0 6px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8">Sponsored</p>
+      <a href="${clickUrl}"><img src="${imageUrl}" alt="Sponsor" style="max-width:100%;border-radius:6px" /></a>
+    </div>`;
+}
+
 export interface DigestJob {
   title: string;
   company: string;
@@ -105,7 +128,11 @@ export interface DigestJob {
   salary: string | null;
 }
 
-export function digestEmailHtml(jobs: DigestJob[], unsubscribeUrl: string): string {
+export function digestEmailHtml(
+  jobs: DigestJob[],
+  unsubscribeUrl: string,
+  sponsor?: { imageUrl: string; clickUrl: string }
+): string {
   const rows = jobs
     .map(
       (j) => `
@@ -121,6 +148,7 @@ export function digestEmailHtml(jobs: DigestJob[], unsubscribeUrl: string): stri
     <h1 style="font-size:18px;margin:0 0 4px">New marine trades jobs for you</h1>
     <p style="margin:0 0 16px;color:#334155">${jobs.length} new listing${jobs.length === 1 ? "" : "s"} matching your alert:</p>
     <table style="width:100%;border-collapse:collapse">${rows}</table>
+    ${sponsor ? sponsorBlockHtml(sponsor.imageUrl, sponsor.clickUrl) : ""}
     <p style="margin:20px 0 0;font-size:12px;color:#94a3b8">
       You're getting this because you signed up for BoatyardJobs alerts.
       <a href="${unsubscribeUrl}" style="color:#94a3b8">Unsubscribe</a>.
