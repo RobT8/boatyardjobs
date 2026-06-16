@@ -138,6 +138,21 @@ export default async function JobDetailPage({ params }: Props) {
         )}
       </div>
 
+      {job.source !== "direct" && (
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brass-400 bg-amber-50/50 p-4">
+          <p className="text-sm text-navy-800">
+            <span className="font-semibold">Is this your company?</span> Feature this role to put{" "}
+            {job.company} at the top of the board, with your logo and analytics.
+          </p>
+          <Link
+            href={`/employers/feature?job=${job.slug}`}
+            className="whitespace-nowrap rounded-md bg-brass-400 px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-brass-500"
+          >
+            Feature this listing →
+          </Link>
+        </div>
+      )}
+
       <div className="mt-12 rounded-lg bg-slate-50 p-6">
         <h2 className="font-semibold text-navy-800">
           More {role?.label ?? "marine"} jobs in {stateName}, straight to your inbox

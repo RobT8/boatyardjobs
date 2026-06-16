@@ -67,6 +67,35 @@ export function confirmEmailHtml(confirmUrl: string, unsubscribeUrl: string): st
     </p>`);
 }
 
+/** Internal heads-up to the team when an employer asks to feature/claim a listing. */
+export function employerLeadNotificationHtml(lead: {
+  company: string;
+  email: string;
+  contact_name?: string | null;
+  phone?: string | null;
+  interest: string;
+  job_title?: string | null;
+  job_slug?: string | null;
+  message?: string | null;
+}): string {
+  const row = (label: string, value?: string | null) =>
+    value ? `<p style="margin:0 0 6px"><strong>${label}:</strong> ${value}</p>` : "";
+  const jobLink = lead.job_slug
+    ? `<a href="${siteUrl()}/jobs/${lead.job_slug}">${lead.job_title ?? lead.job_slug}</a>`
+    : lead.job_title ?? null;
+  return wrap(`
+    <h1 style="font-size:18px;margin:0 0 12px">New employer lead — ${lead.interest}</h1>
+    ${row("Company", lead.company)}
+    ${row("Contact", lead.contact_name)}
+    ${row("Email", lead.email)}
+    ${row("Phone", lead.phone)}
+    ${row("Listing", jobLink)}
+    ${row("Message", lead.message)}
+    <p style="margin:16px 0 0;font-size:12px;color:#94a3b8">
+      Follow up from the BoatyardJobs admin dashboard.
+    </p>`);
+}
+
 export interface DigestJob {
   title: string;
   company: string;

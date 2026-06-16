@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
 import { getAdminStats, type Bucket } from "@/lib/admin";
+import { listEmployerLeads } from "@/lib/leads";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
@@ -55,7 +56,7 @@ function BarList({
 
 export default async function AdminPage() {
   if (!(await isAdmin())) redirect("/admin/login");
-  const s = await getAdminStats();
+  const [s, leads] = await Promise.all([getAdminStats(), listEmployerLeads()]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -114,6 +115,58 @@ export default async function AdminPage() {
                   <td className="py-1.5 pr-2 text-navy-800">{j.title}</td>
                   <td className="py-1.5 pr-2 text-slate-500">{j.company}</td>
                   <td className="py-1.5 text-right font-medium text-navy-800">{j.n}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Employer leads */}
+      <h2 className="mt-10 text-lg font-bold text-navy-800">
+        Employer leads ({leads.length})
+      </h2>
+      <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
+        {leads.length === 0 ? (
+          <p className="text-sm text-slate-400">No employer leads yet.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="pb-2">Company</th>
+                <th className="pb-2">Contact</th>
+                <th className="pb-2">Interest</th>
+                <th className="pb-2">Listing</th>
+                <th className="pb-2 text-right">When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map((l) => (
+                <tr key={l.id} className="border-t border-slate-100 align-top">
+                  <td className="py-1.5 pr-2 font-medium text-navy-800">{l.company}</td>
+                  <td className="py-1.5 pr-2 text-slate-600">
+                    {l.contact_name ? `${l.contact_name} · ` : ""}
+                    <a href={`mailto:${l.email}`} className="text-navy-600 hover:underline">
+                      {l.email}
+                    </a>
+                    {l.phone ? ` · ${l.phone}` : ""}
+                    {l.message ? (
+                      <span className="block text-xs text-slate-400">{l.message}</span>
+                    ) : null}
+                  </td>
+                  <td className="py-1.5 pr-2 text-slate-500">{l.interest}</td>
+                  <td className="py-1.5 pr-2 text-slate-500">
+                    {l.job_slug ? (
+                      <a href={`/jobs/${l.job_slug}`} className="text-navy-600 hover:underline">
+                        {l.job_title ?? l.job_slug}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="py-1.5 text-right text-slate-400">
+                    {new Date(l.created_at).toLocaleDateString()}
+                  </td>
                 </tr>
               ))}
             </tbody>
