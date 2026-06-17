@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import GuidelinesContent from "@/components/GuidelinesContent";
 
 interface ChannelOpt {
   key: string;
@@ -32,6 +33,7 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
   const [months, setMonths] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showGuidelines, setShowGuidelines] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const monthly = useMemo(
@@ -218,9 +220,13 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
             />
             <p className="mt-1 text-xs text-slate-500">
               PNG, JPG, WebP or GIF, up to 600KB. See our{" "}
-              <a href="/advertise/guidelines" target="_blank" className="text-navy-600 underline">
+              <button
+                type="button"
+                onClick={() => setShowGuidelines(true)}
+                className="text-navy-600 underline"
+              >
                 advertising guidelines
-              </a>
+              </button>
               .
             </p>
           </div>
@@ -290,9 +296,13 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
             <input name="agree" type="checkbox" className="mt-1" required={step === 3} />
             <span>
               I agree to the{" "}
-              <a href="/advertise/guidelines" target="_blank" className="text-navy-600 underline">
+              <button
+                type="button"
+                onClick={() => setShowGuidelines(true)}
+                className="text-navy-600 underline"
+              >
                 advertising guidelines
-              </a>
+              </button>
               .
             </span>
           </label>
@@ -315,6 +325,43 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
           </div>
         </div>
       </form>
+
+      {showGuidelines && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowGuidelines(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Advertising guidelines"
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-navy-800">Advertising guidelines</h2>
+              <button
+                type="button"
+                onClick={() => setShowGuidelines(false)}
+                aria-label="Close"
+                className="rounded-md px-2 py-1 text-2xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                ×
+              </button>
+            </div>
+            <GuidelinesContent />
+            <div className="mt-6 text-right">
+              <button
+                type="button"
+                onClick={() => setShowGuidelines(false)}
+                className="rounded-md bg-navy-800 px-5 py-2 text-sm font-semibold text-white hover:bg-navy-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
