@@ -95,6 +95,19 @@ export async function countByCategory(): Promise<{ category: string; n: number }
   return (data ?? []) as { category: string; n: number }[];
 }
 
+/**
+ * Published-job counts per (state, category) pair. Powers the programmatic
+ * state×role landing pages and the cross-links between them. Backed by the
+ * job_counts_by_state_category view.
+ */
+export async function countByStateAndCategory(): Promise<
+  { state: string; category: string; n: number }[]
+> {
+  const { data, error } = await getDb().from("job_counts_by_state_category").select("*");
+  if (error) throw error;
+  return (data ?? []) as { state: string; category: string; n: number }[];
+}
+
 export async function recordApplyClick(jobId: number): Promise<void> {
   const { error } = await getDb().from("apply_clicks").insert({ job_id: jobId });
   if (error) throw error;

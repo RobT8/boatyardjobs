@@ -36,12 +36,20 @@ export default function EmployersPage() {
         BoatyardJobs is the dedicated job board for the US recreational marine trades. Post your
         role in minutes.
       </p>
-      <Link
-        href="/post-a-job"
-        className="mt-6 inline-block rounded-md bg-brass-400 px-8 py-3 font-semibold text-navy-900 hover:bg-brass-500"
-      >
-        Post a job
-      </Link>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href="/post-a-job"
+          className="inline-block rounded-md bg-brass-400 px-8 py-3 font-semibold text-navy-900 hover:bg-brass-500"
+        >
+          Post a job
+        </Link>
+        <Link
+          href="/employers/feature"
+          className="inline-block rounded-md border border-navy-300 px-8 py-3 font-semibold text-navy-800 hover:bg-navy-50"
+        >
+          Feature your listings
+        </Link>
+      </div>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
         {PERKS.map((p) => (

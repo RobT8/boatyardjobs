@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import JobCard from "@/components/JobCard";
 import AlertSignupForm from "@/components/AlertSignupForm";
-import { listJobs } from "@/lib/jobs";
-import { roleFromSlug } from "@/lib/taxonomy";
+import { countByStateAndCategory, listJobs } from "@/lib/jobs";
+import { roleFromSlug, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,15 @@ export default async function RoleJobsPage({ params }: Props) {
   const match = roleFromSlug(role);
   if (!match) notFound();
 
-  const { jobs, total } = await listJobs({ category: match.slug, limit: 100 });
+  const [{ jobs, total }, counts] = await Promise.all([
+    listJobs({ category: match.slug, limit: 100 }),
+    countByStateAndCategory(),
+  ]);
+
+  const statesHere = counts
+    .filter((c) => c.category === match.slug && c.n > 0)
+    .map((c) => ({ code: c.state, name: US_STATES[c.state] ?? c.state, n: c.n }))
+    .sort((a, b) => b.n - a.n);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -45,6 +54,26 @@ export default async function RoleJobsPage({ params }: Props) {
           No open {match.label.toLowerCase()} jobs right now — set an alert below.
         </p>
       )}
+
+      {statesHere.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-sm font-semibold text-navy-800">
+            {match.label} jobs by state
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {statesHere.map(({ code, name, n }) => (
+              <Link
+                key={code}
+                href={`/jobs/state/${stateSlug(code)}/${match.slug}`}
+                className="rounded-full bg-navy-50 px-3 py-1 text-sm font-medium text-navy-700 hover:bg-navy-100"
+              >
+                {name} <span className="text-slate-400">({n})</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-10 rounded-lg bg-navy-800 p-6 text-white">
         <h2 className="font-semibold">New {match.label.toLowerCase()} jobs by email</h2>
         <div className="mt-3 max-w-xl">

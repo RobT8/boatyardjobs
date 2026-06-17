@@ -73,6 +73,8 @@ function SiteFooter() {
           <ul className="mt-2 space-y-1">
             <li><Link href="/employers" className="hover:text-brass-400">Why post here</Link></li>
             <li><Link href="/post-a-job" className="hover:text-brass-400">Post a job</Link></li>
+            <li><Link href="/employers/feature" className="hover:text-brass-400">Feature your listings</Link></li>
+            <li><Link href="/advertise" className="hover:text-brass-400">Advertise with us</Link></li>
           </ul>
         </div>
       </div>

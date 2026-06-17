@@ -12,6 +12,7 @@ import {
   siteUrl,
   type DigestJob,
 } from "../../src/lib/email";
+import { pickEmailAd, recordAdEvent } from "../../src/lib/ads";
 
 /**
  * Alert digest — run on a schedule (after aggregation). For each confirmed
@@ -26,6 +27,11 @@ async function main() {
 
   const base = siteUrl();
   const alerts = await listConfirmedAlerts();
+  // One sponsor for this run's digests (rotates between runs).
+  const sponsorAd = await pickEmailAd();
+  const sponsor = sponsorAd
+    ? { imageUrl: sponsorAd.imageUrl, clickUrl: `${base}/api/ads/${sponsorAd.adId}/click` }
+    : undefined;
   let sent = 0;
 
   for (const alert of alerts) {
@@ -45,9 +51,14 @@ async function main() {
       await sendEmail({
         to: alert.email,
         subject: `${jobs.length} new marine trades job${jobs.length === 1 ? "" : "s"} for you`,
-        html: digestEmailHtml(digestJobs, `${base}/api/alerts/unsubscribe?token=${alert.token}`),
+        html: digestEmailHtml(
+          digestJobs,
+          `${base}/api/alerts/unsubscribe?token=${alert.token}`,
+          sponsor
+        ),
       });
       await recordAlertSent(alert.id);
+      if (sponsorAd) await recordAdEvent(sponsorAd.adId, "impression").catch(() => {});
       sent++;
     } catch (err) {
       console.error(`Digest to ${alert.email} failed:`, err);
