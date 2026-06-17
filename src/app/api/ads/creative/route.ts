@@ -1,5 +1,11 @@
 import { redirect } from "next/navigation";
-import { addCreative, getAdById, getAdvertiserByToken, uploadCreativeImage } from "@/lib/ads";
+import {
+  addCreative,
+  getAdById,
+  getAdvertiserByToken,
+  normalizeUrl,
+  uploadCreativeImage,
+} from "@/lib/ads";
 
 const MAX_BYTES = 600 * 1024;
 const EXT: Record<string, string> = {
@@ -18,7 +24,7 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const token = String(form.get("token") ?? "").trim();
   const adId = Number(form.get("ad_id"));
-  const targetUrl = String(form.get("target_url") ?? "").trim();
+  const targetUrl = normalizeUrl(String(form.get("target_url") ?? ""));
   const dash = `/advertise/dashboard?token=${token}`;
 
   const advertiser = token ? await getAdvertiserByToken(token) : null;

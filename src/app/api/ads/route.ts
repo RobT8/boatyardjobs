@@ -6,6 +6,7 @@ import {
   getChannel,
   getTerm,
   monthlyTotalCents,
+  normalizeUrl,
   sanitizeChannels,
   setAdStripeSession,
   uploadCreativeImage,
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
 
   const company = get("company");
   const email = get("email");
-  const targetUrl = get("target_url");
+  const targetUrl = normalizeUrl(get("target_url"));
   const channels = sanitizeChannels(form.getAll("channels").map(String));
   const periodType = get("period_type") === "fixed" ? "fixed" : "recurring";
   const months = periodType === "fixed" ? parseInt(get("months"), 10) : null;
