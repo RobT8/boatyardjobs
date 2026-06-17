@@ -207,7 +207,18 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
             <label className="mb-1 block text-sm font-medium text-navy-800">
               Destination URL (where clicks go)
             </label>
-            <input name="target_url" type="url" required={step === 2} placeholder="https://…" className={inputCls} />
+            <input
+              name="target_url"
+              type="text"
+              inputMode="url"
+              required={step === 2}
+              placeholder="www.yourcompany.com"
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                if (v && !/^https?:\/\//i.test(v)) e.target.value = `https://${v}`;
+              }}
+              className={inputCls}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-navy-800">Banner image</label>

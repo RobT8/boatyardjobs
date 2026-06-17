@@ -84,6 +84,13 @@ export function priceLabel(cents: number): string {
   return `$${(cents / 100).toFixed(0)}`;
 }
 
+/** Accept bare domains ("www.bbc.co.uk") by defaulting to https://. */
+export function normalizeUrl(input: string): string {
+  const v = input.trim();
+  if (!v) return v;
+  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
+}
+
 // ---------------------------------------------------------------------------
 // Records
 // ---------------------------------------------------------------------------

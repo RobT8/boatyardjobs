@@ -112,9 +112,10 @@ function AdRow({ row, token }: { row: AdvertiserAd; token: string }) {
           <input type="hidden" name="ad_id" value={ad.id} />
           <input
             name="target_url"
-            type="url"
+            type="text"
+            inputMode="url"
             required
-            placeholder="Destination URL (https://…)"
+            placeholder="Destination URL (www.example.com)"
             defaultValue={creative?.target_url ?? ""}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
