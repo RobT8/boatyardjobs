@@ -100,6 +100,34 @@ function AdRow({ row, token }: { row: AdvertiserAd; token: string }) {
 
       <details className="mt-4">
         <summary className="cursor-pointer text-sm font-medium text-navy-600">
+          Change link
+        </summary>
+        <form action="/api/ads/link" method="post" className="mt-3 space-y-2">
+          <input type="hidden" name="token" value={token} />
+          <input type="hidden" name="ad_id" value={ad.id} />
+          <input
+            name="target_url"
+            type="text"
+            inputMode="url"
+            required
+            placeholder="New destination URL (www.example.com)"
+            defaultValue={creative?.target_url ?? ""}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-slate-500">
+            Keeps your current banner; the updated link goes back into review before it shows.
+          </p>
+          <button
+            type="submit"
+            className="rounded-md bg-navy-800 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-700"
+          >
+            Update link
+          </button>
+        </form>
+      </details>
+
+      <details className="mt-2">
+        <summary className="cursor-pointer text-sm font-medium text-navy-600">
           Replace banner
         </summary>
         <form
