@@ -61,7 +61,14 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
       fd.set("period_type", periodType);
       fd.set("months", String(months));
       const res = await fetch("/api/ads", { method: "POST", body: fd });
-      const data = await res.json();
+      let data: { url?: string; error?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        setError(`Server error (${res.status}). Please try again.`);
+        setSubmitting(false);
+        return;
+      }
       if (!res.ok || !data.url) {
         setError(data.error ?? "Something went wrong. Please try again.");
         setSubmitting(false);

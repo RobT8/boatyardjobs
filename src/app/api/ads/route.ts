@@ -67,66 +67,72 @@ export async function POST(req: Request) {
     periodType === "fixed" ? fixedTotalCents(channels, months!) : monthlyTotalCents(channels);
   if (priceCents <= 0) return bad("Could not price that selection.");
 
-  const advertiser = await upsertAdvertiser(company, email);
-  const adId = await createAd({
-    advertiser_id: advertiser.id,
-    channels,
-    period_type: periodType,
-    months,
-    target_state: state,
-    target_category: category,
-    price_cents: priceCents,
-  });
+  try {
+    const advertiser = await upsertAdvertiser(company, email);
+    const adId = await createAd({
+      advertiser_id: advertiser.id,
+      channels,
+      period_type: periodType,
+      months,
+      target_state: state,
+      target_category: category,
+      price_cents: priceCents,
+    });
 
-  const bytes = await file.arrayBuffer();
-  const { path, url } = await uploadCreativeImage(bytes, file.type, EXT[file.type]);
-  await addCreative(adId, path, url, targetUrl);
+    const bytes = await file.arrayBuffer();
+    const { path, url } = await uploadCreativeImage(bytes, file.type, EXT[file.type]);
+    await addCreative(adId, path, url, targetUrl);
 
-  const base = new URL(req.url).origin;
-  const channelLabels = channels.map((c) => getChannel(c)!.label).join(" + ");
-  const cur = currency() === AD_CURRENCY ? currency() : AD_CURRENCY;
+    const base = new URL(req.url).origin;
+    const channelLabels = channels.map((c) => getChannel(c)!.label).join(" + ");
+    const cur = currency() === AD_CURRENCY ? currency() : AD_CURRENCY;
 
-  const session =
-    periodType === "recurring"
-      ? await getStripe().checkout.sessions.create({
-          mode: "subscription",
-          line_items: channels.map((c) => ({
-            quantity: 1,
-            price_data: {
-              currency: cur,
-              unit_amount: getChannel(c)!.priceCents,
-              recurring: { interval: "month" as const },
-              product_data: { name: `BoatyardJobs advertising — ${getChannel(c)!.label}` },
-            },
-          })),
-          customer_email: email,
-          success_url: `${base}/advertise/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${base}/advertise?canceled=1`,
-          metadata: { kind: "ad", adId: String(adId) },
-          client_reference_id: String(adId),
-        })
-      : await getStripe().checkout.sessions.create({
-          mode: "payment",
-          line_items: [
-            {
+    const session =
+      periodType === "recurring"
+        ? await getStripe().checkout.sessions.create({
+            mode: "subscription",
+            line_items: channels.map((c) => ({
               quantity: 1,
               price_data: {
                 currency: cur,
-                unit_amount: priceCents,
-                product_data: {
-                  name: `BoatyardJobs advertising — ${channelLabels}`,
-                  description: `${months}-month placement`,
+                unit_amount: getChannel(c)!.priceCents,
+                recurring: { interval: "month" as const },
+                product_data: { name: `BoatyardJobs advertising — ${getChannel(c)!.label}` },
+              },
+            })),
+            customer_email: email,
+            success_url: `${base}/advertise/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${base}/advertise?canceled=1`,
+            metadata: { kind: "ad", adId: String(adId) },
+            client_reference_id: String(adId),
+          })
+        : await getStripe().checkout.sessions.create({
+            mode: "payment",
+            line_items: [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: cur,
+                  unit_amount: priceCents,
+                  product_data: {
+                    name: `BoatyardJobs advertising — ${channelLabels}`,
+                    description: `${months}-month placement`,
+                  },
                 },
               },
-            },
-          ],
-          customer_email: email,
-          success_url: `${base}/advertise/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${base}/advertise?canceled=1`,
-          metadata: { kind: "ad", adId: String(adId) },
-          client_reference_id: String(adId),
-        });
+            ],
+            customer_email: email,
+            success_url: `${base}/advertise/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${base}/advertise?canceled=1`,
+            metadata: { kind: "ad", adId: String(adId) },
+            client_reference_id: String(adId),
+          });
 
-  await setAdStripeSession(adId, session.id);
-  return Response.json({ url: session.url });
+    await setAdStripeSession(adId, session.id);
+    return Response.json({ url: session.url });
+  } catch (err) {
+    console.error("Ad checkout failed:", err);
+    const message = err instanceof Error ? err.message : "Unexpected error";
+    return Response.json({ error: `Could not start checkout: ${message}` }, { status: 500 });
+  }
 }
