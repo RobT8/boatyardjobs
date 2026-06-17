@@ -34,6 +34,8 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLink, setPreviewLink] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   const monthly = useMemo(
@@ -276,7 +278,18 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
             <button
               type="button"
               onClick={() => {
-                if (formRef.current?.reportValidity()) setStep(3);
+                const form = formRef.current;
+                if (!form?.reportValidity()) return;
+                // Build a local preview of the uploaded banner + destination link.
+                const fileInput = form.elements.namedItem("image") as HTMLInputElement | null;
+                const file = fileInput?.files?.[0] ?? null;
+                if (previewUrl) URL.revokeObjectURL(previewUrl);
+                setPreviewUrl(file ? URL.createObjectURL(file) : null);
+                const linkInput = form.elements.namedItem("target_url") as HTMLInputElement | null;
+                let link = (linkInput?.value ?? "").trim();
+                if (link && !/^https?:\/\//i.test(link)) link = `https://${link}`;
+                setPreviewLink(link);
+                setStep(3);
               }}
               className="rounded-md bg-brass-400 px-6 py-2 font-semibold text-navy-900 hover:bg-brass-500"
             >
@@ -302,6 +315,32 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
               manage billing anytime from your dashboard.
             </p>
           </div>
+
+          {previewUrl && (
+            <div>
+              <p className="mb-2 text-sm font-medium text-navy-800">Preview — check it works</p>
+              <a href={previewLink} target="_blank" rel="noopener noreferrer" className="block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt="Your banner preview"
+                  className="w-full rounded-md border border-slate-200"
+                />
+              </a>
+              <p className="mt-2 text-xs text-slate-500">
+                This is how your banner will appear.{" "}
+                <a
+                  href={previewLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-navy-600 underline"
+                >
+                  Click to test your link →
+                </a>{" "}
+                ({previewLink})
+              </p>
+            </div>
+          )}
 
           <label className="flex items-start gap-2 text-sm text-slate-700">
             <input name="agree" type="checkbox" className="mt-1" required={step === 3} />
