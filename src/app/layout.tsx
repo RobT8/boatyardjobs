@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import Link from "next/link";
 import PageViewTracker from "@/components/PageViewTracker";
 import AdvertiserMenu from "@/components/AdvertiserMenu";
+import EmployerMenu from "@/components/EmployerMenu";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
@@ -38,8 +39,9 @@ function SiteHeader() {
             Job Alerts
           </Link>
           <AdvertiserMenu />
+          <EmployerMenu />
           <Link
-            href="/employers"
+            href="/post-a-job"
             className="rounded-md bg-brass-400 px-3 py-1.5 font-semibold text-navy-900 hover:bg-brass-500"
           >
             Post a Job

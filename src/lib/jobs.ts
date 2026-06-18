@@ -130,6 +130,7 @@ export interface NewJobInput {
   apply_email?: string | null;
   status?: string;
   posted_at?: string;
+  employer_id?: number | null;
 }
 
 export function slugify(input: string): string {
@@ -159,6 +160,7 @@ function toRow(input: NewJobInput, slug: string) {
     apply_email: input.apply_email ?? null,
     status: input.status ?? "published",
     posted_at: input.posted_at ?? new Date().toISOString(),
+    employer_id: input.employer_id ?? null,
   };
 }
 
