@@ -15,7 +15,7 @@ import {
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 import { currency, getStripe, isStripeEnabled } from "@/lib/stripe";
 
-const MAX_BYTES = 600 * 1024;
+const MAX_BYTES = 2 * 1024 * 1024;
 const EXT: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -25,6 +25,16 @@ const EXT: Record<string, string> = {
 
 function bad(message: string) {
   return Response.json({ error: message }, { status: 400 });
+}
+
+/** Fail fast with a clear label instead of hanging until the function times out. */
+function withTimeout<T>(p: Promise<T>, label: string, ms = 9000): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out`)), ms)
+    ),
+  ]);
 }
 
 /**
@@ -61,35 +71,41 @@ export async function POST(req: Request) {
   const file = form.get("image");
   if (!(file instanceof File) || file.size === 0) return bad("Please upload a banner image.");
   if (!EXT[file.type]) return bad("Banner must be a PNG, JPG, WebP or GIF.");
-  if (file.size > MAX_BYTES) return bad("Banner must be 600KB or smaller.");
+  if (file.size > MAX_BYTES) return bad("Banner must be 2MB or smaller.");
 
   const priceCents =
     periodType === "fixed" ? fixedTotalCents(channels, months!) : monthlyTotalCents(channels);
   if (priceCents <= 0) return bad("Could not price that selection.");
 
   try {
-    const advertiser = await upsertAdvertiser(company, email);
-    const adId = await createAd({
-      advertiser_id: advertiser.id,
-      channels,
-      period_type: periodType,
-      months,
-      target_state: state,
-      target_category: category,
-      price_cents: priceCents,
-    });
+    const advertiser = await withTimeout(upsertAdvertiser(company, email), "Creating advertiser");
+    const adId = await withTimeout(
+      createAd({
+        advertiser_id: advertiser.id,
+        channels,
+        period_type: periodType,
+        months,
+        target_state: state,
+        target_category: category,
+        price_cents: priceCents,
+      }),
+      "Creating ad"
+    );
 
     const bytes = await file.arrayBuffer();
-    const { path, url } = await uploadCreativeImage(bytes, file.type, EXT[file.type]);
-    await addCreative(adId, path, url, targetUrl);
+    const { path, url } = await withTimeout(
+      uploadCreativeImage(bytes, file.type, EXT[file.type]),
+      "Uploading banner"
+    );
+    await withTimeout(addCreative(adId, path, url, targetUrl), "Saving creative");
 
     const base = new URL(req.url).origin;
     const channelLabels = channels.map((c) => getChannel(c)!.label).join(" + ");
     const cur = currency() === AD_CURRENCY ? currency() : AD_CURRENCY;
 
-    const session =
+    const session = await withTimeout(
       periodType === "recurring"
-        ? await getStripe().checkout.sessions.create({
+        ? getStripe().checkout.sessions.create({
             mode: "subscription",
             line_items: channels.map((c) => ({
               quantity: 1,
@@ -106,7 +122,7 @@ export async function POST(req: Request) {
             metadata: { kind: "ad", adId: String(adId) },
             client_reference_id: String(adId),
           })
-        : await getStripe().checkout.sessions.create({
+        : getStripe().checkout.sessions.create({
             mode: "payment",
             line_items: [
               {
@@ -126,7 +142,9 @@ export async function POST(req: Request) {
             cancel_url: `${base}/advertise?canceled=1`,
             metadata: { kind: "ad", adId: String(adId) },
             client_reference_id: String(adId),
-          });
+          }),
+      "Creating checkout"
+    );
 
     await setAdStripeSession(adId, session.id);
     return Response.json({ url: session.url });

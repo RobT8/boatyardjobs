@@ -4,7 +4,7 @@ const SPECS = [
   ["Job-page banner", "728×90 or 970×250 (leaderboard / billboard). Shown responsively."],
   ["Email banner", "600×200 recommended, displayed up to 560px wide."],
   ["File types", "PNG, JPG, WebP or GIF (static preferred)."],
-  ["File size", "600KB maximum."],
+  ["File size", "2MB maximum."],
 ];
 
 const RULES = [

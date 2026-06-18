@@ -56,6 +56,21 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
     setError(null);
     try {
       const fd = new FormData(e.currentTarget);
+      // Reject oversized/wrong images here so it fails instantly instead of
+      // after a slow upload.
+      const img = fd.get("image");
+      if (img instanceof File) {
+        if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(img.type)) {
+          setError("Banner must be a PNG, JPG, WebP or GIF.");
+          setSubmitting(false);
+          return;
+        }
+        if (img.size > 2 * 1024 * 1024) {
+          setError("Banner image is too large — please use one under 2MB.");
+          setSubmitting(false);
+          return;
+        }
+      }
       fd.delete("channels");
       selected.forEach((c) => fd.append("channels", c));
       fd.set("period_type", periodType);
@@ -239,7 +254,7 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
               className={inputCls}
             />
             <p className="mt-1 text-xs text-slate-500">
-              PNG, JPG, WebP or GIF, up to 600KB. See our{" "}
+              PNG, JPG, WebP or GIF, up to 2MB. See our{" "}
               <button
                 type="button"
                 onClick={() => setShowGuidelines(true)}
