@@ -27,6 +27,26 @@ const money = (c: number) => `$${(c / 100).toFixed(0)}`;
 const inputCls =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-navy-600 focus:outline-none";
 
+/** Shrink large images in the browser before upload (keeps GIFs untouched). */
+async function downscaleImage(file: File, maxDim = 1200, quality = 0.85): Promise<Blob> {
+  if (file.type === "image/gif") return file;
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return file;
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  const type =
+    file.type === "image/png" ? "image/png" : file.type === "image/webp" ? "image/webp" : "image/jpeg";
+  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, type, quality));
+  return blob ?? file;
+}
+
 export default function AdvertiseWizard({ channels, terms, states, roles, companyName }: Props) {
   const [step, setStep] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
@@ -57,8 +77,6 @@ export default function AdvertiseWizard({ channels, terms, states, roles, compan
     setError(null);
     try {
       const fd = new FormData(e.currentTarget);
-      // Reject oversized/wrong images here so it fails instantly instead of
-      // after a slow upload.
       const img = fd.get("image");
       if (img instanceof File) {
         if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(img.type)) {
@@ -66,10 +84,18 @@ export default function AdvertiseWizard({ channels, terms, states, roles, compan
           setSubmitting(false);
           return;
         }
-        if (img.size > 2 * 1024 * 1024) {
-          setError("Banner image is too large — please use one under 2MB.");
+        if (img.size > 20 * 1024 * 1024) {
+          setError("Image is too large — please use one under 20MB.");
           setSubmitting(false);
           return;
+        }
+        // Downscale in the browser so the upload is fast and lands under the
+        // server limit (this is what kept checkout slow with big photos).
+        try {
+          const resized = await downscaleImage(img);
+          fd.set("image", resized, img.name || "banner");
+        } catch {
+          /* fall back to the original file */
         }
       }
       fd.delete("channels");
@@ -253,10 +279,11 @@ export default function AdvertiseWizard({ channels, terms, states, roles, compan
               type="file"
               accept="image/png,image/jpeg,image/webp,image/gif"
               required={step === 2}
+              onChange={() => setError(null)}
               className={inputCls}
             />
             <p className="mt-1 text-xs text-slate-500">
-              PNG, JPG, WebP or GIF, up to 2MB. See our{" "}
+              PNG, JPG, WebP or GIF. Large photos are resized automatically. See our{" "}
               <button
                 type="button"
                 onClick={() => setShowGuidelines(true)}
@@ -304,6 +331,7 @@ export default function AdvertiseWizard({ channels, terms, states, roles, compan
               onClick={() => {
                 const form = formRef.current;
                 if (!form?.reportValidity()) return;
+                setError(null);
                 // Build a local preview of the uploaded banner + destination link.
                 const fileInput = form.elements.namedItem("image") as HTMLInputElement | null;
                 const file = fileInput?.files?.[0] ?? null;

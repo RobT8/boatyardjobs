@@ -212,7 +212,13 @@ export default async function AdvertiserDashboardPage({ searchParams }: Props) {
       )}
       {billing === "unavailable" && (
         <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-          Billing management isn&apos;t available for this account yet.
+          Billing management opens once you&apos;ve completed your first paid advert.
+        </p>
+      )}
+      {billing === "error" && (
+        <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          Couldn&apos;t open the billing portal. If this persists, the Stripe Customer Portal may
+          need enabling in your Stripe settings.
         </p>
       )}
 

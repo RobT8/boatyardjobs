@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import Link from "next/link";
 import PageViewTracker from "@/components/PageViewTracker";
+import AdvertiserMenu from "@/components/AdvertiserMenu";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
@@ -36,6 +37,7 @@ function SiteHeader() {
           <Link href="/alerts" className="hover:text-brass-400">
             Job Alerts
           </Link>
+          <AdvertiserMenu />
           <Link
             href="/employers"
             className="rounded-md bg-brass-400 px-3 py-1.5 font-semibold text-navy-900 hover:bg-brass-500"
