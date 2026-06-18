@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import AdvertiseWizard from "@/components/AdvertiseWizard";
 import AdvertiserAccountStep from "@/components/AdvertiserAccountStep";
 import { AD_CHANNELS, AD_TERMS, channelAvailability } from "@/lib/ads";
@@ -91,23 +90,6 @@ export default async function AdvertisePage({ searchParams }: Props) {
         )}
       </div>
 
-      <p className="mt-6 text-center text-sm text-slate-500">
-        <Link href="/advertise/guidelines" className="text-navy-600 hover:underline">
-          Advertising guidelines
-        </Link>
-        {advertiser && (
-          <>
-            {" · "}
-            <Link href="/advertise/dashboard" className="text-navy-600 hover:underline">
-              My dashboard
-            </Link>
-            {" · "}
-            <Link href="/advertise/profile" className="text-navy-600 hover:underline">
-              My profile
-            </Link>
-          </>
-        )}
-      </p>
     </div>
   );
 }
