@@ -61,6 +61,26 @@ separate webhook lists and keys.
 
 ---
 
+## Customer Portal (the "Manage billing" button)
+
+Advertisers manage their subscription (card, invoices, cancel) via Stripe's
+hosted **Customer Portal**, which the dashboard's "Manage billing" button opens.
+Stripe requires you to **activate it once** or the button can't generate a portal
+session:
+
+- Stripe Dashboard → **Settings → Billing → Customer portal** → configure what
+  customers can do → **Activate / Save**.
+- Test mode and live mode each have their **own** activation — enable both.
+
+Notes:
+- An advertiser only gets a "Manage billing" link once they have a Stripe
+  customer, i.e. after their first paid advert. Before that the button shows
+  "Billing management opens once you've completed your first paid advert."
+- If the portal isn't enabled the button shows an error message rather than
+  failing silently.
+
+---
+
 ## Sandbox / test vs live
 
 - **Sandbox & test mode** use `sk_test_…` keys and a test-mode webhook. Changes
