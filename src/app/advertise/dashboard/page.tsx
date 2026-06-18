@@ -25,6 +25,13 @@ function ctr(impr: number, clicks: number): string {
   return `${((clicks / impr) * 100).toFixed(1)}%`;
 }
 
+function daysLeftLabel(iso: string): string {
+  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86400_000);
+  if (days < 0) return "expired";
+  if (days === 0) return "last day";
+  return `${days} day${days === 1 ? "" : "s"} left`;
+}
+
 function AdRow({ row, token }: { row: AdvertiserAd; token: string }) {
   const { ad, creative, stats } = row;
   const channels = ad.channels.map((c) => getChannel(c)?.label ?? c).join(" + ");
@@ -38,10 +45,10 @@ function AdRow({ row, token }: { row: AdvertiserAd; token: string }) {
           <p className="text-sm text-slate-500">
             {ad.period_type === "recurring"
               ? ad.current_period_end
-                ? `Renews ${new Date(ad.current_period_end).toLocaleDateString()}`
+                ? `Renews ${new Date(ad.current_period_end).toLocaleDateString()} (${daysLeftLabel(ad.current_period_end)})`
                 : "Monthly"
               : ad.expires_at
-                ? `Ends ${new Date(ad.expires_at).toLocaleDateString()}`
+                ? `Ends ${new Date(ad.expires_at).toLocaleDateString()} (${daysLeftLabel(ad.expires_at)})`
                 : `${ad.months}-month term`}
           </p>
         </div>
