@@ -110,6 +110,20 @@ export function advertiserLoginHtml(dashboardUrl: string): string {
     </p>`);
 }
 
+export function employerLoginHtml(dashboardUrl: string): string {
+  return wrap(`
+    <h1 style="font-size:18px;margin:0 0 12px">Your employer sign-in link</h1>
+    <p style="margin:0 0 16px;color:#334155">
+      Tap below to sign in to your BoatyardJobs employer account. The link is
+      private to you — don't share it.
+    </p>
+    <p style="margin:0 0 8px">
+      <a href="${dashboardUrl}" style="background:#c79a3b;color:#1a1407;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:6px;display:inline-block">
+        Sign in
+      </a>
+    </p>`);
+}
+
 /** Sponsor banner block for the digest email. */
 export function sponsorBlockHtml(imageUrl: string, clickUrl: string): string {
   return `

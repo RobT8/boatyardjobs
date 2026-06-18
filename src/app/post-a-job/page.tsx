@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import EmployerAccountStep from "@/components/EmployerAccountStep";
+import PostJobWizard from "@/components/PostJobWizard";
+import { getSessionEmployer } from "@/lib/employer-auth";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 import { isStripeEnabled, jobPostPriceLabel } from "@/lib/stripe";
 
@@ -10,14 +13,12 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ submitted?: string; error?: string; canceled?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; canceled?: string; autherror?: string }>;
 }
 
-const inputCls =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-navy-600 focus:outline-none";
-
 export default async function PostJobPage({ searchParams }: Props) {
-  const { submitted, error, canceled } = await searchParams;
+  const { submitted, error, canceled, autherror } = await searchParams;
+  const employer = await getSessionEmployer();
   const paid = isStripeEnabled();
 
   if (submitted) {
@@ -44,99 +45,49 @@ export default async function PostJobPage({ searchParams }: Props) {
 
       {error && (
         <p className="mt-6 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          Please check the form — every field except salary is required, and the description
-          needs at least a few sentences.
+          Please check the form — every field except salary is required, and the description needs
+          at least a few sentences.
         </p>
       )}
       {canceled && (
         <p className="mt-6 rounded-md bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-          Payment canceled — your listing wasn&apos;t posted. You can complete the details and try
-          again below.
+          Payment canceled — your listing wasn&apos;t posted. You can review the details and try
+          again.
         </p>
       )}
 
-      <form action="/api/post-job" method="post" className="mt-8 space-y-5">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-navy-800">Job title</label>
-          <input name="title" required placeholder="e.g. Marine Diesel Technician" className={inputCls} />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-navy-800">Company</label>
-            <input name="company" required className={inputCls} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-navy-800">Role category</label>
-            <select name="category" required className={inputCls}>
-              {ROLE_CATEGORIES.map((r) => (
-                <option key={r.slug} value={r.slug}>{r.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-navy-800">City</label>
-            <input name="city" required className={inputCls} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-navy-800">State</label>
-            <select name="state" required className={inputCls}>
-              {Object.entries(US_STATES).map(([code, name]) => (
-                <option key={code} value={code}>{name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-navy-800">Salary min</label>
-            <input name="salary_min" type="number" min="0" placeholder="60000" className={inputCls} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-navy-800">Salary max</label>
-            <input name="salary_max" type="number" min="0" placeholder="85000" className={inputCls} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-navy-800">Per</label>
-            <select name="salary_unit" className={inputCls}>
-              <option value="YEAR">Year</option>
-              <option value="HOUR">Hour</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-navy-800">Description</label>
-          <textarea
-            name="description"
-            required
-            rows={8}
-            placeholder="What the role involves, experience and certifications required, pay and benefits…"
-            className={inputCls}
+      <div className="mt-8">
+        {employer ? (
+          <PostJobWizard
+            roles={ROLE_CATEGORIES.map((r) => [r.slug, r.label] as [string, string])}
+            states={Object.entries(US_STATES)}
+            companyName={employer.company}
+            applyEmail={employer.email}
+            paid={paid}
+            priceLabel={jobPostPriceLabel()}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-navy-800">
-            Applications email
-          </label>
-          <input
-            name="apply_email"
-            type="email"
-            required
-            placeholder="hiring@yourcompany.com"
-            className={inputCls}
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            Candidates apply straight to this address — we never sit between you and applicants.
-          </p>
-        </div>
-        <button
-          type="submit"
-          className="rounded-md bg-brass-400 px-8 py-3 font-semibold text-navy-900 hover:bg-brass-500"
-        >
-          {paid ? `Continue to payment — ${jobPostPriceLabel()}` : "Submit listing"}
-        </button>
-      </form>
+        ) : (
+          <div className="rounded-lg border border-slate-200 bg-white p-6">
+            <ol className="mb-6 flex gap-2 text-xs font-medium">
+              <li className="flex-1 rounded-md bg-navy-800 px-3 py-2 text-center text-white">
+                1. Account
+              </li>
+              {["Job details", "Description", "Review & post"].map((label, i) => (
+                <li
+                  key={label}
+                  className="flex-1 rounded-md bg-slate-100 px-3 py-2 text-center text-slate-400"
+                >
+                  {i + 2}. {label}
+                </li>
+              ))}
+            </ol>
+            <p className="mb-4 text-sm text-slate-600">
+              Sign in or create an employer account to post and manage your listings.
+            </p>
+            <EmployerAccountStep next="/post-a-job" autherror={autherror} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

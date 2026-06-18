@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { insertJob, setJobStripeSession } from "@/lib/jobs";
+import { getSessionEmployer } from "@/lib/employer-auth";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 import { currency, getStripe, isStripeEnabled, jobPostPriceCents } from "@/lib/stripe";
 
@@ -9,6 +10,9 @@ import { currency, getStripe, isStripeEnabled, jobPostPriceCents } from "@/lib/s
  * configured yet, fall back to the old free 'pending' flow so the form still works.
  */
 export async function POST(req: Request) {
+  const employer = await getSessionEmployer();
+  if (!employer) redirect("/employers/login?next=/post-a-job");
+
   const form = await req.formData();
   const get = (k: string) => String(form.get(k) ?? "").trim();
 
@@ -42,6 +46,7 @@ export async function POST(req: Request) {
     category,
     description,
     apply_email,
+    employer_id: employer!.id,
     salary_min: Number.isFinite(salaryMin) ? salaryMin : null,
     salary_max: Number.isFinite(salaryMax) ? salaryMax : null,
     salary_unit: get("salary_unit") === "HOUR" ? ("HOUR" as const) : ("YEAR" as const),
