@@ -15,12 +15,11 @@ export default function AdvertiseSuccessPage() {
         one business day) — you&apos;ll see it go live right after that.
       </p>
       <p className="mt-3 text-slate-600">
-        We&apos;ve emailed you a private link to your dashboard, where you can track views and clicks,
-        swap your banner, or manage billing.
+        Head to your dashboard to track views and clicks, swap your banner, or manage billing.
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Link
-          href="/advertise/login"
+          href="/advertise/dashboard"
           className="rounded-md bg-brass-400 px-6 py-3 font-semibold text-navy-900 hover:bg-brass-500"
         >
           Go to my dashboard

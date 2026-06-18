@@ -1,28 +1,23 @@
 import { redirect } from "next/navigation";
 import { getAdvertiserByEmail } from "@/lib/ads";
-import { advertiserLoginHtml, isEmailEnabled, sendEmail, siteUrl } from "@/lib/email";
+import { setAdvertiserSession, verifyPassword } from "@/lib/advertiser-auth";
 
-/** Email an advertiser a magic link to their dashboard. */
+function safeNext(next: string): string {
+  return next.startsWith("/advertise") ? next : "/advertise";
+}
+
+/** Email + password sign-in. */
 export async function POST(req: Request) {
   const form = await req.formData();
   const email = String(form.get("email") ?? "").trim();
+  const password = String(form.get("password") ?? "");
+  const next = safeNext(String(form.get("next") ?? "/advertise/dashboard"));
 
-  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    const advertiser = await getAdvertiserByEmail(email);
-    if (advertiser && isEmailEnabled()) {
-      const link = `${siteUrl()}/advertise/dashboard?token=${advertiser.login_token}`;
-      try {
-        await sendEmail({
-          to: email,
-          subject: "Your BoatyardJobs advertiser dashboard",
-          html: advertiserLoginHtml(link),
-        });
-      } catch (err) {
-        console.error("Failed to send advertiser login email:", err);
-      }
-    }
+  const advertiser = await getAdvertiserByEmail(email);
+  if (!advertiser || !verifyPassword(password, advertiser.password_hash)) {
+    redirect(`/advertise/login?autherror=badlogin&next=${encodeURIComponent(next)}`);
   }
 
-  // Always report success — don't reveal whether an account exists.
-  redirect("/advertise/login?sent=1");
+  await setAdvertiserSession(advertiser!.login_token);
+  redirect(next);
 }

@@ -1,13 +1,8 @@
 import { redirect } from "next/navigation";
-import {
-  addCreative,
-  getAdById,
-  getAdvertiserByToken,
-  normalizeUrl,
-  uploadCreativeImage,
-} from "@/lib/ads";
+import { addCreative, getAdById, normalizeUrl, uploadCreativeImage } from "@/lib/ads";
+import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 
-const MAX_BYTES = 600 * 1024;
+const MAX_BYTES = 2 * 1024 * 1024;
 const EXT: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -21,17 +16,15 @@ const EXT: Record<string, string> = {
  * it shows again — while plain renewals (untouched creative) stay live.
  */
 export async function POST(req: Request) {
-  const form = await req.formData();
-  const token = String(form.get("token") ?? "").trim();
-  const adId = Number(form.get("ad_id"));
-  const targetUrl = normalizeUrl(String(form.get("target_url") ?? ""));
-  const dash = `/advertise/dashboard?token=${token}`;
-
-  const advertiser = token ? await getAdvertiserByToken(token) : null;
+  const advertiser = await getSessionAdvertiser();
   if (!advertiser) redirect("/advertise/login");
 
+  const form = await req.formData();
+  const adId = Number(form.get("ad_id"));
+  const targetUrl = normalizeUrl(String(form.get("target_url") ?? ""));
+
   const ad = Number.isFinite(adId) ? await getAdById(adId) : null;
-  if (!ad || ad.advertiser_id !== advertiser!.id) redirect(`${dash}&error=1`);
+  if (!ad || ad.advertiser_id !== advertiser!.id) redirect("/advertise/dashboard?error=1");
 
   const file = form.get("image");
   if (
@@ -41,7 +34,7 @@ export async function POST(req: Request) {
     !EXT[file.type] ||
     file.size > MAX_BYTES
   ) {
-    redirect(`${dash}&error=1`);
+    redirect("/advertise/dashboard?error=1");
   }
 
   const f = file as File;
@@ -49,5 +42,5 @@ export async function POST(req: Request) {
   const { path, url } = await uploadCreativeImage(bytes, f.type, EXT[f.type]);
   await addCreative(adId, path, url, targetUrl);
 
-  redirect(`${dash}&updated=1`);
+  redirect("/advertise/dashboard?updated=1");
 }

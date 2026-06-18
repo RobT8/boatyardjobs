@@ -101,6 +101,7 @@ export interface Advertiser {
   email: string;
   stripe_customer_id: string | null;
   login_token: string;
+  password_hash: string | null;
   created_at: string;
 }
 
@@ -161,6 +162,36 @@ export async function upsertAdvertiser(company: string, email: string): Promise<
     .single();
   if (error) throw error;
   return data as Advertiser;
+}
+
+export async function createAdvertiserWithPassword(
+  company: string,
+  email: string,
+  passwordHash: string
+): Promise<Advertiser> {
+  const { data, error } = await getDb()
+    .from("advertisers")
+    .insert({ company, email, password_hash: passwordHash })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as Advertiser;
+}
+
+export async function setAdvertiserPassword(id: number, passwordHash: string): Promise<void> {
+  const { error } = await getDb()
+    .from("advertisers")
+    .update({ password_hash: passwordHash })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateAdvertiserProfile(
+  id: number,
+  fields: { company?: string }
+): Promise<void> {
+  const { error } = await getDb().from("advertisers").update(fields).eq("id", id);
+  if (error) throw error;
 }
 
 export async function createAd(input: {

@@ -20,13 +20,14 @@ interface Props {
   terms: TermOpt[];
   states: [string, string][];
   roles: [string, string][];
+  companyName: string;
 }
 
 const money = (c: number) => `$${(c / 100).toFixed(0)}`;
 const inputCls =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-navy-600 focus:outline-none";
 
-export default function AdvertiseWizard({ channels, terms, states, roles }: Props) {
+export default function AdvertiseWizard({ channels, terms, states, roles, companyName }: Props) {
   const [step, setStep] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [periodType, setPeriodType] = useState<"recurring" | "fixed">("recurring");
@@ -105,7 +106,18 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm">
+        <span className="text-emerald-800">
+          ✓ Signed in as <strong>{companyName}</strong>
+        </span>
+        <form action="/api/ads/logout" method="post">
+          <button className="text-xs font-medium text-slate-500 hover:underline">Log out</button>
+        </form>
+      </div>
       <ol className="mb-6 flex gap-2 text-xs font-medium">
+        <li className="flex-1 rounded-md bg-emerald-100 px-3 py-2 text-center text-emerald-800">
+          ✓ Account
+        </li>
         {["Choose slots", "Your advert", "Review & pay"].map((label, i) => (
           <li
             key={label}
@@ -113,7 +125,7 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
               step === i + 1 ? "bg-navy-800 text-white" : "bg-slate-100 text-slate-500"
             }`}
           >
-            {i + 1}. {label}
+            {i + 2}. {label}
           </li>
         ))}
       </ol>
@@ -217,16 +229,6 @@ export default function AdvertiseWizard({ channels, terms, states, roles }: Prop
       {/* Steps 2 & 3 share one form so the uploaded file persists across them */}
       <form ref={formRef} onSubmit={handleSubmit} className={step >= 2 ? "" : "hidden"}>
         <div className={step === 2 ? "space-y-4" : "hidden"}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-navy-800">Company</label>
-              <input name="company" required={step === 2} className={inputCls} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-navy-800">Email</label>
-              <input name="email" type="email" required={step === 2} className={inputCls} />
-            </div>
-          </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-navy-800">
               Destination URL (where clicks go)

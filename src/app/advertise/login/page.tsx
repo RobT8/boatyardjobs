@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import AdvertiserAccountStep from "@/components/AdvertiserAccountStep";
+import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 
 export const metadata: Metadata = {
   title: "Advertiser sign in",
@@ -8,46 +11,29 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ sent?: string }>;
+  searchParams: Promise<{ autherror?: string; sent?: string; mode?: string; next?: string }>;
 }
 
 export default async function AdvertiseLoginPage({ searchParams }: Props) {
-  const { sent } = await searchParams;
+  const { autherror, sent, mode, next } = await searchParams;
+  if (await getSessionAdvertiser()) redirect("/advertise/dashboard");
 
-  if (sent) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-navy-800">Check your email</h1>
-        <p className="mt-4 text-slate-600">
-          If that address has an advertiser account, we&apos;ve sent a private link to your
-          dashboard. It can take a minute to arrive.
-        </p>
-      </div>
-    );
-  }
+  const safeNext = next && next.startsWith("/advertise") ? next : "/advertise/dashboard";
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
-      <h1 className="text-2xl font-bold text-navy-800">Advertiser sign in</h1>
-      <p className="mt-3 text-sm text-slate-600">
-        Enter the email you used to book your advert and we&apos;ll send a private link to your
-        dashboard.
+      <h1 className="text-2xl font-bold text-navy-800">Advertiser account</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        Sign in to manage your adverts, or create an account to start advertising.
       </p>
-      <form action="/api/ads/login" method="post" className="mt-6 flex flex-col gap-3">
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="you@company.com"
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-navy-600 focus:outline-none"
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+        <AdvertiserAccountStep
+          next={safeNext}
+          autherror={autherror}
+          sent={!!sent}
+          defaultMode={mode === "register" ? "register" : "login"}
         />
-        <button
-          type="submit"
-          className="rounded-md bg-brass-400 px-6 py-2.5 font-semibold text-navy-900 hover:bg-brass-500"
-        >
-          Email me my dashboard link
-        </button>
-      </form>
+      </div>
     </div>
   );
 }
