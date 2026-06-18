@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import AdvertiseWizard from "@/components/AdvertiseWizard";
+import AdvertiserAccountStep from "@/components/AdvertiserAccountStep";
 import { AD_CHANNELS, AD_TERMS, channelAvailability } from "@/lib/ads";
+import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 import { isStripeEnabled } from "@/lib/stripe";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 
@@ -14,11 +16,12 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ canceled?: string }>;
+  searchParams: Promise<{ canceled?: string; autherror?: string }>;
 }
 
 export default async function AdvertisePage({ searchParams }: Props) {
-  const { canceled } = await searchParams;
+  const { canceled, autherror } = await searchParams;
+  const advertiser = await getSessionAdvertiser();
   const availability = await channelAvailability();
   const paid = isStripeEnabled();
 
@@ -57,23 +60,53 @@ export default async function AdvertisePage({ searchParams }: Props) {
       )}
 
       <div className="mt-8">
-        <AdvertiseWizard
-          channels={channels}
-          terms={AD_TERMS}
-          states={Object.entries(US_STATES)}
-          roles={ROLE_CATEGORIES.map((r) => [r.slug, r.label] as [string, string])}
-        />
+        {advertiser ? (
+          <AdvertiseWizard
+            channels={channels}
+            terms={AD_TERMS}
+            states={Object.entries(US_STATES)}
+            roles={ROLE_CATEGORIES.map((r) => [r.slug, r.label] as [string, string])}
+            companyName={advertiser.company}
+          />
+        ) : (
+          <div className="rounded-lg border border-slate-200 bg-white p-6">
+            <ol className="mb-6 flex gap-2 text-xs font-medium">
+              <li className="flex-1 rounded-md bg-navy-800 px-3 py-2 text-center text-white">
+                1. Account
+              </li>
+              {["Choose slots", "Your advert", "Review & pay"].map((label, i) => (
+                <li
+                  key={label}
+                  className="flex-1 rounded-md bg-slate-100 px-3 py-2 text-center text-slate-400"
+                >
+                  {i + 2}. {label}
+                </li>
+              ))}
+            </ol>
+            <p className="mb-4 text-sm text-slate-600">
+              Sign in or create an advertiser account to book your slot.
+            </p>
+            <AdvertiserAccountStep next="/advertise" autherror={autherror} />
+          </div>
+        )}
       </div>
 
       <p className="mt-6 text-center text-sm text-slate-500">
-        Already advertising?{" "}
-        <Link href="/advertise/login" className="text-navy-600 hover:underline">
-          Sign in to your dashboard
-        </Link>{" "}
-        ·{" "}
         <Link href="/advertise/guidelines" className="text-navy-600 hover:underline">
           Advertising guidelines
         </Link>
+        {advertiser && (
+          <>
+            {" · "}
+            <Link href="/advertise/dashboard" className="text-navy-600 hover:underline">
+              My dashboard
+            </Link>
+            {" · "}
+            <Link href="/advertise/profile" className="text-navy-600 hover:underline">
+              My profile
+            </Link>
+          </>
+        )}
       </p>
     </div>
   );

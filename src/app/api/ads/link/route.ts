@@ -1,11 +1,6 @@
 import { redirect } from "next/navigation";
-import {
-  addCreative,
-  getAdById,
-  getAdvertiserByToken,
-  getCurrentCreative,
-  normalizeUrl,
-} from "@/lib/ads";
+import { addCreative, getAdById, getCurrentCreative, normalizeUrl } from "@/lib/ads";
+import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 
 /**
  * Advertiser updates only the destination link on an existing ad, keeping the
@@ -13,22 +8,20 @@ import {
  * shows again (the link is the riskiest part of an ad).
  */
 export async function POST(req: Request) {
-  const form = await req.formData();
-  const token = String(form.get("token") ?? "").trim();
-  const adId = Number(form.get("ad_id"));
-  const targetUrl = normalizeUrl(String(form.get("target_url") ?? ""));
-  const dash = `/advertise/dashboard?token=${token}`;
-
-  const advertiser = token ? await getAdvertiserByToken(token) : null;
+  const advertiser = await getSessionAdvertiser();
   if (!advertiser) redirect("/advertise/login");
 
+  const form = await req.formData();
+  const adId = Number(form.get("ad_id"));
+  const targetUrl = normalizeUrl(String(form.get("target_url") ?? ""));
+
   const ad = Number.isFinite(adId) ? await getAdById(adId) : null;
-  if (!ad || ad.advertiser_id !== advertiser!.id) redirect(`${dash}&error=1`);
+  if (!ad || ad.advertiser_id !== advertiser!.id) redirect("/advertise/dashboard?error=1");
 
   const current = await getCurrentCreative(adId);
-  if (!current || !/^https?:\/\/.+/i.test(targetUrl)) redirect(`${dash}&error=1`);
+  if (!current || !/^https?:\/\/.+/i.test(targetUrl)) redirect("/advertise/dashboard?error=1");
 
   // New version, same image, new link → pending approval.
   await addCreative(adId, current.image_path, current.image_url, targetUrl);
-  redirect(`${dash}&updated=1`);
+  redirect("/advertise/dashboard?updated=1");
 }

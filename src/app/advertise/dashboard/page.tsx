@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getAdvertiserAds, getAdvertiserByToken, getChannel, type AdvertiserAd } from "@/lib/ads";
+import { redirect } from "next/navigation";
+import { getAdvertiserAds, getChannel, type AdvertiserAd } from "@/lib/ads";
+import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 
 export const metadata: Metadata = {
   title: "Advertiser dashboard",
@@ -10,7 +12,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ token?: string; updated?: string; error?: string; billing?: string }>;
+  searchParams: Promise<{ updated?: string; error?: string; billing?: string }>;
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -32,7 +34,7 @@ function daysLeftLabel(iso: string): string {
   return `${days} day${days === 1 ? "" : "s"} left`;
 }
 
-function AdRow({ row, token }: { row: AdvertiserAd; token: string }) {
+function AdRow({ row }: { row: AdvertiserAd }) {
   const { ad, creative, stats } = row;
   const channels = ad.channels.map((c) => getChannel(c)?.label ?? c).join(" + ");
   const approval = creative?.approval_status ?? "pending";
@@ -106,11 +108,8 @@ function AdRow({ row, token }: { row: AdvertiserAd; token: string }) {
       </div>
 
       <details className="mt-4">
-        <summary className="cursor-pointer text-sm font-medium text-navy-600">
-          Change link
-        </summary>
+        <summary className="cursor-pointer text-sm font-medium text-navy-600">Change link</summary>
         <form action="/api/ads/link" method="post" className="mt-3 space-y-2">
-          <input type="hidden" name="token" value={token} />
           <input type="hidden" name="ad_id" value={ad.id} />
           <input
             name="target_url"
@@ -134,16 +133,13 @@ function AdRow({ row, token }: { row: AdvertiserAd; token: string }) {
       </details>
 
       <details className="mt-2">
-        <summary className="cursor-pointer text-sm font-medium text-navy-600">
-          Replace banner
-        </summary>
+        <summary className="cursor-pointer text-sm font-medium text-navy-600">Replace banner</summary>
         <form
           action="/api/ads/creative"
           method="post"
           encType="multipart/form-data"
           className="mt-3 space-y-2"
         >
-          <input type="hidden" name="token" value={token} />
           <input type="hidden" name="ad_id" value={ad.id} />
           <input
             name="target_url"
@@ -175,36 +171,33 @@ function AdRow({ row, token }: { row: AdvertiserAd; token: string }) {
 }
 
 export default async function AdvertiserDashboardPage({ searchParams }: Props) {
-  const { token, updated, error, billing } = await searchParams;
-  const advertiser = token ? await getAdvertiserByToken(token) : null;
+  const { updated, error, billing } = await searchParams;
+  const advertiser = await getSessionAdvertiser();
+  if (!advertiser) redirect("/advertise/login");
 
-  if (!advertiser) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-navy-800">Link expired or invalid</h1>
-        <p className="mt-4 text-slate-600">
-          Request a fresh sign-in link from the{" "}
-          <Link href="/advertise/login" className="text-navy-600 underline">sign-in page</Link>.
-        </p>
-      </div>
-    );
-  }
-
-  const ads = await getAdvertiserAds(advertiser.id);
+  const ads = await getAdvertiserAds(advertiser!.id);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-navy-800">{advertiser.company}</h1>
+          <h1 className="text-2xl font-bold text-navy-800">{advertiser!.company}</h1>
           <p className="text-sm text-slate-500">Your adverts on BoatyardJobs</p>
         </div>
-        <a
-          href={`/api/ads/portal?token=${token}`}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Manage billing
-        </a>
+        <div className="flex gap-2">
+          <Link
+            href="/advertise/profile"
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Profile
+          </Link>
+          <a
+            href="/api/ads/portal"
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Manage billing
+          </a>
+        </div>
       </div>
 
       {updated && (
@@ -230,7 +223,7 @@ export default async function AdvertiserDashboardPage({ searchParams }: Props) {
             <Link href="/advertise" className="text-navy-600 underline">Book your first slot →</Link>
           </p>
         ) : (
-          ads.map((row) => <AdRow key={row.ad.id} row={row} token={token!} />)
+          ads.map((row) => <AdRow key={row.ad.id} row={row} />)
         )}
       </div>
 

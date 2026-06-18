@@ -10,8 +10,8 @@ import {
   sanitizeChannels,
   setAdStripeSession,
   uploadCreativeImage,
-  upsertAdvertiser,
 } from "@/lib/ads";
+import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 import { currency, getStripe, isStripeEnabled } from "@/lib/stripe";
 
@@ -46,11 +46,14 @@ function withTimeout<T>(p: Promise<T>, label: string, ms = 9000): Promise<T> {
 export async function POST(req: Request) {
   if (!isStripeEnabled()) return bad("Payments are not configured yet.");
 
+  const advertiser = await getSessionAdvertiser();
+  if (!advertiser) {
+    return Response.json({ error: "Please sign in to your advertiser account first." }, { status: 401 });
+  }
+
   const form = await req.formData();
   const get = (k: string) => String(form.get(k) ?? "").trim();
 
-  const company = get("company");
-  const email = get("email");
   const targetUrl = normalizeUrl(get("target_url"));
   const channels = sanitizeChannels(form.getAll("channels").map(String));
   const periodType = get("period_type") === "fixed" ? "fixed" : "recurring";
@@ -58,8 +61,6 @@ export async function POST(req: Request) {
   const targetState = get("target_state").toUpperCase();
   const targetCategory = get("target_category");
 
-  if (company.length < 2) return bad("Please enter your company name.");
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad("Please enter a valid email.");
   if (!/^https?:\/\/.+/i.test(targetUrl)) return bad("Enter a valid destination URL (https://…).");
   if (channels.length === 0) return bad("Choose at least one ad slot.");
   if (periodType === "fixed" && !getTerm(months ?? 0)) return bad("Choose a valid term length.");
@@ -78,7 +79,6 @@ export async function POST(req: Request) {
   if (priceCents <= 0) return bad("Could not price that selection.");
 
   try {
-    const advertiser = await withTimeout(upsertAdvertiser(company, email), "Creating advertiser");
     const adId = await withTimeout(
       createAd({
         advertiser_id: advertiser.id,
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
                 product_data: { name: `BoatyardJobs advertising — ${getChannel(c)!.label}` },
               },
             })),
-            customer_email: email,
+            customer_email: advertiser.email,
             success_url: `${base}/advertise/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${base}/advertise?canceled=1`,
             metadata: { kind: "ad", adId: String(adId) },
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
                 },
               },
             ],
-            customer_email: email,
+            customer_email: advertiser.email,
             success_url: `${base}/advertise/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${base}/advertise?canceled=1`,
             metadata: { kind: "ad", adId: String(adId) },
