@@ -43,12 +43,6 @@ export default function EmployersPage() {
         >
           Post a job
         </Link>
-        <Link
-          href="/employers/feature"
-          className="inline-block rounded-md border border-navy-300 px-8 py-3 font-semibold text-navy-800 hover:bg-navy-50"
-        >
-          Feature your listings
-        </Link>
       </div>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
