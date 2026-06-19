@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import JobCard from "@/components/JobCard";
+import JobRow from "@/components/JobRow";
 import AlertSignupForm from "@/components/AlertSignupForm";
-import { countByStateAndCategory, listJobs } from "@/lib/jobs";
+import { countByStateAndCategory, fairlyRotate, getFeaturedJobs, listJobs } from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateFromSlug } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +27,12 @@ export default async function StateJobsPage({ params }: Props) {
   const match = stateFromSlug(state);
   if (!match) notFound();
 
-  const [{ jobs, total }, counts] = await Promise.all([
-    listJobs({ state: match.code, limit: 100 }),
+  const [featuredRaw, { jobs, total }, counts] = await Promise.all([
+    getFeaturedJobs({ state: match.code }),
+    listJobs({ state: match.code, excludeFeatured: true, limit: 100 }),
     countByStateAndCategory(),
   ]);
+  const featured = fairlyRotate(featuredRaw);
 
   const rolesHere = ROLE_CATEGORIES.map((r) => ({
     role: r,
@@ -43,15 +45,22 @@ export default async function StateJobsPage({ params }: Props) {
         Marine Trades Jobs in {match.name}
       </h1>
       <p className="mt-2 text-slate-600">
-        {total} open position{total === 1 ? "" : "s"} at boatyards, marinas and dealerships in{" "}
-        {match.name}.
+        {total + featured.length} open position{total + featured.length === 1 ? "" : "s"} at
+        boatyards, marinas and dealerships in {match.name}.
       </p>
-      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {featured.length > 0 && (
+        <div className="mt-6 space-y-3">
+          {featured.map((job) => (
+            <JobRow key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+      <div className="mt-3 space-y-3">
         {jobs.map((job) => (
-          <JobCard key={job.id} job={job} />
+          <JobRow key={job.id} job={job} />
         ))}
       </div>
-      {jobs.length === 0 && (
+      {jobs.length === 0 && featured.length === 0 && (
         <p className="mt-8 rounded-lg border border-dashed border-slate-300 p-10 text-center text-slate-500">
           No open jobs in {match.name} right now — set an alert below and be first to know.
         </p>

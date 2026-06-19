@@ -1,20 +1,30 @@
 import Link from "next/link";
 import JobCard from "@/components/JobCard";
+import JobRow from "@/components/JobRow";
 import SearchForm from "@/components/SearchForm";
 import AlertSignupForm from "@/components/AlertSignupForm";
 import FeaturedCarousel from "@/components/FeaturedCarousel";
-import { countByCategory, countByState, listFeaturedJobs, listJobs } from "@/lib/jobs";
+import {
+  countByCategory,
+  countByState,
+  fairlyRotate,
+  getFeaturedJobs,
+  listCompanies,
+  listJobs,
+} from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [{ jobs, total }, featured, allStates, categories] = await Promise.all([
-    listJobs({ limit: 9 }),
-    listFeaturedJobs(),
+  const [{ total }, featuredRaw, companies, allStates, categories] = await Promise.all([
+    listJobs({ limit: 1 }),
+    getFeaturedJobs(),
+    listCompanies(),
     countByState(),
     countByCategory(),
   ]);
+  const featured = fairlyRotate(featuredRaw);
   const states = allStates.slice(0, 10);
 
   return (
@@ -30,14 +40,19 @@ export default async function HomePage() {
             boatyards, marinas and dealerships nationwide.
           </p>
           <div className="mt-8 rounded-lg bg-white p-4 shadow-lg">
-            <SearchForm />
+            <SearchForm companies={companies} />
           </div>
         </div>
       </section>
 
       {featured.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 pt-12">
-          <h2 className="text-2xl font-bold text-navy-800">Featured Jobs</h2>
+        <section className="mx-auto max-w-6xl px-4 py-12">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-2xl font-bold text-navy-800">Featured Jobs</h2>
+            <Link href="/jobs" className="text-sm font-semibold text-navy-600 hover:underline">
+              Browse all {total} jobs →
+            </Link>
+          </div>
           <div className="mt-6">
             <FeaturedCarousel>
               {featured.map((job) => (
@@ -45,22 +60,13 @@ export default async function HomePage() {
               ))}
             </FeaturedCarousel>
           </div>
+          <div className="mt-8 space-y-3">
+            {featured.map((job) => (
+              <JobRow key={job.id} job={job} />
+            ))}
+          </div>
         </section>
       )}
-
-      <section className="mx-auto max-w-6xl px-4 py-12">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-2xl font-bold text-navy-800">Latest Jobs</h2>
-          <Link href="/jobs" className="text-sm font-semibold text-navy-600 hover:underline">
-            View all {total} jobs →
-          </Link>
-        </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {jobs.map((job) => (
-            <JobCard key={job.id} job={job} />
-          ))}
-        </div>
-      </section>
 
       <section className="bg-slate-50 py-12">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 md:grid-cols-2">

@@ -27,6 +27,11 @@ export interface JobFilters {
   q?: string;
   state?: string;
   category?: string;
+  company?: string;
+  /** Only featured listings. */
+  onlyFeatured?: boolean;
+  /** Hide featured listings (so they can be shown separately at the top). */
+  excludeFeatured?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -51,6 +56,9 @@ export async function listJobs(filters: JobFilters = {}): Promise<{ jobs: Job[];
 
   if (filters.state) query = query.eq("state", filters.state.toUpperCase());
   if (filters.category) query = query.eq("category", filters.category);
+  if (filters.company) query = query.eq("company", filters.company);
+  if (filters.onlyFeatured) query = query.gt("featured", 0);
+  if (filters.excludeFeatured) query = query.eq("featured", 0);
   if (filters.q) {
     // Strip characters that would break PostgREST's `or` filter / ilike grammar.
     const term = filters.q.replace(/[%,()*]/g, " ").trim();
@@ -71,17 +79,38 @@ export async function listJobs(filters: JobFilters = {}): Promise<{ jobs: Job[];
   return { jobs: (data ?? []).map(normalize), total: count ?? 0 };
 }
 
-/** Published featured listings, newest first — for the homepage carousel. */
-export async function listFeaturedJobs(limit = 12): Promise<Job[]> {
-  const { data, error } = await getDb()
+/** Published featured listings matching the given filters (for carousels and
+ * the "featured at top" sections). Ordered by id for a stable rotation base. */
+export async function getFeaturedJobs(filters: JobFilters = {}): Promise<Job[]> {
+  let query = getDb()
     .from("jobs")
     .select("*")
     .eq("status", "published")
-    .gt("featured", 0)
-    .order("posted_at", { ascending: false })
-    .limit(limit);
+    .gt("featured", 0);
+  if (filters.state) query = query.eq("state", filters.state.toUpperCase());
+  if (filters.category) query = query.eq("category", filters.category);
+  if (filters.company) query = query.eq("company", filters.company);
+  const { data, error } = await query.order("id", { ascending: true }).limit(100);
   if (error) throw error;
   return (data ?? []).map(normalize);
+}
+
+/**
+ * Rotate a list by a time-based offset so each item gets an even, fair share of
+ * the top spot over time — independent of how new it is. Stable within each
+ * interval, advances by one every `intervalMs`.
+ */
+export function fairlyRotate<T>(items: T[], intervalMs = 10 * 60 * 1000): T[] {
+  if (items.length <= 1) return items;
+  const offset = Math.floor(Date.now() / intervalMs) % items.length;
+  return items.slice(offset).concat(items.slice(0, offset));
+}
+
+/** Distinct companies with live listings — for the search dropdown. */
+export async function listCompanies(): Promise<string[]> {
+  const { data, error } = await getDb().from("job_companies").select("company");
+  if (error) throw error;
+  return (data ?? []).map((r) => r.company as string);
 }
 
 export async function getJobBySlug(slug: string): Promise<Job | null> {

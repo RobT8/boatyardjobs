@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import JobCard from "@/components/JobCard";
+import JobRow from "@/components/JobRow";
 import SearchForm from "@/components/SearchForm";
 import AlertSignupForm from "@/components/AlertSignupForm";
-import { listJobs } from "@/lib/jobs";
+import { fairlyRotate, getFeaturedJobs, listCompanies, listJobs } from "@/lib/jobs";
 
 export const metadata: Metadata = {
   title: "Browse Marine Trades Jobs",
@@ -13,44 +13,62 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ q?: string; state?: string; category?: string; page?: string }>;
+  searchParams: Promise<{ state?: string; category?: string; company?: string; page?: string }>;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 25;
 
 export default async function JobsPage({ searchParams }: Props) {
-  const { q, state, category, page } = await searchParams;
+  const { state, category, company, page } = await searchParams;
   const pageNum = Math.max(1, parseInt(page ?? "1", 10) || 1);
-  const { jobs, total } = await listJobs({
-    q,
-    state,
-    category,
-    limit: PAGE_SIZE,
-    offset: (pageNum - 1) * PAGE_SIZE,
-  });
+  const filters = { state, category, company };
+
+  const [featuredRaw, { jobs, total }, companies] = await Promise.all([
+    pageNum === 1 ? getFeaturedJobs(filters) : Promise.resolve([]),
+    listJobs({
+      ...filters,
+      excludeFeatured: true,
+      limit: PAGE_SIZE,
+      offset: (pageNum - 1) * PAGE_SIZE,
+    }),
+    listCompanies(),
+  ]);
+  const featured = fairlyRotate(featuredRaw);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const baseQuery = new URLSearchParams();
-  if (q) baseQuery.set("q", q);
   if (state) baseQuery.set("state", state);
   if (category) baseQuery.set("category", category);
+  if (company) baseQuery.set("company", company);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-3xl font-bold text-navy-800">Marine Trades Jobs</h1>
       <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <SearchForm q={q} state={state} category={category} />
+        <SearchForm state={state} category={category} company={company} companies={companies} />
       </div>
 
-      <p className="mt-6 text-sm text-slate-500">
-        {total} job{total === 1 ? "" : "s"} found
+      {featured.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-brass-500">Featured</h2>
+          <div className="mt-3 space-y-3">
+            {featured.map((job) => (
+              <JobRow key={job.id} job={job} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <p className="mt-8 text-sm text-slate-500">
+        {total} more job{total === 1 ? "" : "s"} found
       </p>
-      <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-3 space-y-3">
         {jobs.map((job) => (
-          <JobCard key={job.id} job={job} />
+          <JobRow key={job.id} job={job} />
         ))}
       </div>
-      {jobs.length === 0 && (
+
+      {jobs.length === 0 && featured.length === 0 && (
         <div className="mt-8 rounded-lg border border-dashed border-slate-300 p-10 text-center text-slate-500">
           <p>No jobs match that search yet.</p>
           <p className="mt-2 text-sm">Set up an alert and we&apos;ll email you when one appears:</p>
@@ -61,7 +79,7 @@ export default async function JobsPage({ searchParams }: Props) {
       )}
 
       {pages > 1 && (
-        <nav className="mt-8 flex justify-center gap-2 text-sm">
+        <nav className="mt-8 flex flex-wrap justify-center gap-2 text-sm">
           {Array.from({ length: pages }, (_, i) => i + 1).map((p) => {
             const qs = new URLSearchParams(baseQuery);
             if (p > 1) qs.set("page", String(p));

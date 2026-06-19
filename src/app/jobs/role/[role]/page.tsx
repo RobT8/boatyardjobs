@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import JobCard from "@/components/JobCard";
+import JobRow from "@/components/JobRow";
 import AlertSignupForm from "@/components/AlertSignupForm";
-import { countByStateAndCategory, listJobs } from "@/lib/jobs";
+import { countByStateAndCategory, fairlyRotate, getFeaturedJobs, listJobs } from "@/lib/jobs";
 import { roleFromSlug, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +27,12 @@ export default async function RoleJobsPage({ params }: Props) {
   const match = roleFromSlug(role);
   if (!match) notFound();
 
-  const [{ jobs, total }, counts] = await Promise.all([
-    listJobs({ category: match.slug, limit: 100 }),
+  const [featuredRaw, { jobs, total }, counts] = await Promise.all([
+    getFeaturedJobs({ category: match.slug }),
+    listJobs({ category: match.slug, excludeFeatured: true, limit: 100 }),
     countByStateAndCategory(),
   ]);
+  const featured = fairlyRotate(featuredRaw);
 
   const statesHere = counts
     .filter((c) => c.category === match.slug && c.n > 0)
@@ -42,14 +44,21 @@ export default async function RoleJobsPage({ params }: Props) {
       <h1 className="text-3xl font-bold text-navy-800">{match.label} Jobs</h1>
       <p className="mt-2 max-w-2xl text-slate-600">{match.description}</p>
       <p className="mt-4 text-sm text-slate-500">
-        {total} open position{total === 1 ? "" : "s"}
+        {total + featured.length} open position{total + featured.length === 1 ? "" : "s"}
       </p>
-      <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {featured.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {featured.map((job) => (
+            <JobRow key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+      <div className="mt-3 space-y-3">
         {jobs.map((job) => (
-          <JobCard key={job.id} job={job} />
+          <JobRow key={job.id} job={job} />
         ))}
       </div>
-      {jobs.length === 0 && (
+      {jobs.length === 0 && featured.length === 0 && (
         <p className="mt-8 rounded-lg border border-dashed border-slate-300 p-10 text-center text-slate-500">
           No open {match.label.toLowerCase()} jobs right now — set an alert below.
         </p>
