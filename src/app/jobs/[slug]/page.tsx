@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AlertSignupForm from "@/components/AlertSignupForm";
 import SponsorSlot from "@/components/SponsorSlot";
+import BackToJobs from "@/components/BackToJobs";
 import { descriptionParagraphs, formatSalary, getJobBySlug, type Job } from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
@@ -84,6 +85,9 @@ export default async function JobDetailPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingJsonLd(job)) }}
       />
+      <div className="mb-4">
+        <BackToJobs />
+      </div>
       <nav className="text-sm text-slate-500">
         <Link href="/jobs" className="hover:underline">Jobs</Link>
         {" / "}
@@ -121,7 +125,7 @@ export default async function JobDetailPage({ params }: Props) {
         ))}
       </div>
 
-      <div className="prose prose-slate mt-8 max-w-none">
+      <div className="mt-8 max-w-none space-y-4 leading-relaxed text-slate-700">
         {descriptionParagraphs(job.description).map((p, i) => (
           <p key={i}>{p}</p>
         ))}
