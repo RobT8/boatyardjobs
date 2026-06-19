@@ -25,16 +25,24 @@ export default function JobRow({ job }: { job: Job }) {
         <p className="truncate font-semibold text-navy-800">{job.title}</p>
         <p className="truncate text-sm text-slate-500">
           {job.company} · {job.city}, {US_STATES[job.state] ?? job.state} · {role}
-          {salary ? ` · ${salary}` : ""}
         </p>
+        <span className="mt-0.5 text-xs text-slate-400 sm:hidden">{timeAgo(job.posted_at)}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2">
+        {salary ? (
+          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+            {salary}
+          </span>
+        ) : null}
         {job.featured ? (
           <span className="rounded-full bg-brass-400 px-2.5 py-0.5 text-xs font-semibold text-navy-900">
             Featured
           </span>
         ) : null}
-        <span className="hidden text-xs text-slate-400 sm:inline">{timeAgo(job.posted_at)}</span>
+        <span className="hidden text-xs text-slate-400 md:inline">{timeAgo(job.posted_at)}</span>
+        <span className="whitespace-nowrap rounded-md border border-navy-600 px-3 py-1.5 text-xs font-semibold text-navy-700">
+          View details →
+        </span>
       </div>
     </Link>
   );

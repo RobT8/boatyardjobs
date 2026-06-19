@@ -13,20 +13,33 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ state?: string; category?: string; company?: string; page?: string }>;
+  searchParams: Promise<{
+    state?: string;
+    category?: string;
+    company?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }
 
 const PAGE_SIZE = 25;
+const SORTS: { key: "newest" | "oldest" | "salary"; label: string }[] = [
+  { key: "newest", label: "Newest" },
+  { key: "oldest", label: "Oldest" },
+  { key: "salary", label: "Salary" },
+];
 
 export default async function JobsPage({ searchParams }: Props) {
-  const { state, category, company, page } = await searchParams;
+  const { state, category, company, sort: sortParam, page } = await searchParams;
   const pageNum = Math.max(1, parseInt(page ?? "1", 10) || 1);
+  const sort = sortParam === "oldest" || sortParam === "salary" ? sortParam : "newest";
   const filters = { state, category, company };
 
   const [featuredRaw, { jobs, total }, companies] = await Promise.all([
     pageNum === 1 ? getFeaturedJobs(filters) : Promise.resolve([]),
     listJobs({
       ...filters,
+      sort,
       excludeFeatured: true,
       limit: PAGE_SIZE,
       offset: (pageNum - 1) * PAGE_SIZE,
@@ -40,6 +53,16 @@ export default async function JobsPage({ searchParams }: Props) {
   if (state) baseQuery.set("state", state);
   if (category) baseQuery.set("category", category);
   if (company) baseQuery.set("company", company);
+  if (sort !== "newest") baseQuery.set("sort", sort);
+
+  const sortHref = (s: string) => {
+    const qs = new URLSearchParams();
+    if (state) qs.set("state", state);
+    if (category) qs.set("category", category);
+    if (company) qs.set("company", company);
+    if (s !== "newest") qs.set("sort", s);
+    return `/jobs${qs.size ? `?${qs}` : ""}`;
+  };
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -59,9 +82,27 @@ export default async function JobsPage({ searchParams }: Props) {
         </section>
       )}
 
-      <p className="mt-8 text-sm text-slate-500">
-        {total} more job{total === 1 ? "" : "s"} found
-      </p>
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          {total} more job{total === 1 ? "" : "s"} found
+        </p>
+        <div className="flex items-center gap-1 text-xs">
+          <span className="mr-1 text-slate-400">Sort:</span>
+          {SORTS.map((s) => (
+            <a
+              key={s.key}
+              href={sortHref(s.key)}
+              className={`rounded-md px-2.5 py-1 font-medium ${
+                sort === s.key
+                  ? "bg-navy-700 text-white"
+                  : "bg-slate-100 text-navy-700 hover:bg-navy-100"
+              }`}
+            >
+              {s.label}
+            </a>
+          ))}
+        </div>
+      </div>
       <div className="mt-3 space-y-3">
         {jobs.map((job) => (
           <JobRow key={job.id} job={job} />
