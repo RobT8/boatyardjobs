@@ -2,7 +2,13 @@ import { redirect } from "next/navigation";
 import { insertJob, setJobStripeSession } from "@/lib/jobs";
 import { getSessionEmployer } from "@/lib/employer-auth";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
-import { currency, getStripe, isStripeEnabled, jobPostPriceCents } from "@/lib/stripe";
+import {
+  currency,
+  featuredJobPostPriceCents,
+  getStripe,
+  isStripeEnabled,
+  jobPostPriceCents,
+} from "@/lib/stripe";
 
 /**
  * Employer submission → Stripe Checkout. The job is created 'unpaid' and only
@@ -37,6 +43,7 @@ export async function POST(req: Request) {
 
   const salaryMin = parseInt(get("salary_min"), 10);
   const salaryMax = parseInt(get("salary_max"), 10);
+  const featured = get("tier") === "featured" ? 1 : 0;
 
   const input = {
     title,
@@ -47,6 +54,7 @@ export async function POST(req: Request) {
     description,
     apply_email,
     employer_id: employer!.id,
+    featured,
     salary_min: Number.isFinite(salaryMin) ? salaryMin : null,
     salary_max: Number.isFinite(salaryMax) ? salaryMax : null,
     salary_unit: get("salary_unit") === "HOUR" ? ("HOUR" as const) : ("YEAR" as const),
@@ -59,6 +67,7 @@ export async function POST(req: Request) {
   }
 
   const { id } = await insertJob({ ...input, status: "unpaid" });
+  const priceCents = featured ? featuredJobPostPriceCents() : jobPostPriceCents();
   const base = new URL(req.url).origin;
   const session = await getStripe().checkout.sessions.create({
     mode: "payment",
@@ -67,9 +76,11 @@ export async function POST(req: Request) {
         quantity: 1,
         price_data: {
           currency: currency(),
-          unit_amount: jobPostPriceCents(),
+          unit_amount: priceCents,
           product_data: {
-            name: "30-day job listing — BoatyardJobs",
+            name: featured
+              ? "Featured 30-day job listing — BoatyardJobs"
+              : "30-day job listing — BoatyardJobs",
             description: `${title} · ${company} · ${city}, ${state}`,
           },
         },

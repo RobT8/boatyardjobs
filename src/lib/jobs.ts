@@ -71,6 +71,19 @@ export async function listJobs(filters: JobFilters = {}): Promise<{ jobs: Job[];
   return { jobs: (data ?? []).map(normalize), total: count ?? 0 };
 }
 
+/** Published featured listings, newest first — for the homepage carousel. */
+export async function listFeaturedJobs(limit = 12): Promise<Job[]> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select("*")
+    .eq("status", "published")
+    .gt("featured", 0)
+    .order("posted_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map(normalize);
+}
+
 export async function getJobBySlug(slug: string): Promise<Job | null> {
   const { data, error } = await getDb().from("jobs").select("*").eq("slug", slug).maybeSingle();
   if (error) throw error;
@@ -131,6 +144,7 @@ export interface NewJobInput {
   status?: string;
   posted_at?: string;
   employer_id?: number | null;
+  featured?: number;
 }
 
 export function slugify(input: string): string {
@@ -161,6 +175,7 @@ function toRow(input: NewJobInput, slug: string) {
     status: input.status ?? "published",
     posted_at: input.posted_at ?? new Date().toISOString(),
     employer_id: input.employer_id ?? null,
+    featured: input.featured ?? 0,
   };
 }
 

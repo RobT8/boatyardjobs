@@ -44,7 +44,7 @@ export default async function RoleJobsPage({ params }: Props) {
       <p className="mt-4 text-sm text-slate-500">
         {total} open position{total === 1 ? "" : "s"}
       </p>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {jobs.map((job) => (
           <JobCard key={job.id} job={job} />
         ))}
