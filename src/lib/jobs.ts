@@ -264,6 +264,24 @@ export async function publishPaidJob(jobId: number): Promise<boolean> {
 
 export type UpsertResult = "created" | "updated" | "unchanged";
 
+/** True if a published job with the same title/company/state already exists —
+ * used to stop aggregators (notably Adzuna) creating duplicate rows for the
+ * same job listed under multiple URLs. */
+async function publishedDuplicateExists(
+  input: NewJobInput
+): Promise<boolean> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select("id")
+    .eq("status", "published")
+    .eq("title", input.title)
+    .eq("company", input.company)
+    .eq("state", input.state.toUpperCase())
+    .limit(1);
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
 /**
  * Insert or refresh an aggregated listing, keyed on (source, source_url) — the
  * stable identity for a job that lives on someone else's site. Returns whether
@@ -274,7 +292,8 @@ export async function upsertSourcedJob(input: NewJobInput): Promise<UpsertResult
   const db = getDb();
   const source = input.source ?? "direct";
   if (!input.source_url) {
-    // No stable upstream key — fall back to a plain insert.
+    // No stable upstream key — only insert if it isn't already on the board.
+    if (await publishedDuplicateExists(input)) return "unchanged";
     await insertJob(input);
     return "created";
   }
@@ -288,6 +307,9 @@ export async function upsertSourcedJob(input: NewJobInput): Promise<UpsertResult
   if (error) throw error;
 
   if (!existing) {
+    // New (source, source_url), but skip if the same job already exists (e.g.
+    // the aggregator returned it under another URL).
+    if (await publishedDuplicateExists(input)) return "unchanged";
     await insertJob(input);
     return "created";
   }
@@ -390,19 +412,40 @@ const SECTION_HEADINGS = [
 
 /**
  * Split a job description into readable paragraphs. Sources that already use
- * newlines split on those; run-on text (no newlines) gets paragraph breaks
- * inserted before common section headings (e.g. "Requirements:").
+ * newlines split on those. Run-on text (no newlines) gets section-heading breaks
+ * and is then chunked at sentence boundaries so it isn't one giant paragraph.
  */
 export function descriptionParagraphs(text: string): string[] {
-  let t = (text ?? "").replace(/\r/g, "").trim();
+  let t = (text ?? "").replace(/\r/g, "").replace(/[ \t]+/g, " ").trim();
+  // Drop a redundant leading "Job Description" label (often doubled by scrapers).
+  t = t.replace(/^((?:job description|job summary)\s+){1,3}/i, "");
+
   if (!t.includes("\n")) {
-    const re = new RegExp(`\\s+(${SECTION_HEADINGS.join("|")})\\s*:`, "gi");
-    t = t.replace(re, "\n\n$1:");
+    // Break before common section headings (with or without a trailing colon).
+    const re = new RegExp(`\\s+(${SECTION_HEADINGS.join("|")})(:|\\b(?=\\s+[A-Z]))`, "gi");
+    t = t.replace(re, "\n\n$1$2");
   }
-  return t
-    .split(/\n+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+
+  const blocks = t.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  const out: string[] = [];
+  for (const block of blocks) {
+    if (block.length <= 320) {
+      out.push(block);
+      continue;
+    }
+    // Chunk a long run-on block into ~3-sentence paragraphs.
+    const sentences = block.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) ?? [block];
+    let buf = "";
+    for (const s of sentences) {
+      buf += s;
+      if (buf.length >= 260) {
+        out.push(buf.trim());
+        buf = "";
+      }
+    }
+    if (buf.trim()) out.push(buf.trim());
+  }
+  return out.length ? out : [t];
 }
 
 export function formatSalary(job: Job): string | null {
