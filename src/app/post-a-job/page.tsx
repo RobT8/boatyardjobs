@@ -3,7 +3,12 @@ import EmployerAccountStep from "@/components/EmployerAccountStep";
 import PostJobWizard from "@/components/PostJobWizard";
 import { getSessionEmployer } from "@/lib/employer-auth";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
-import { isStripeEnabled, jobPostPriceLabel } from "@/lib/stripe";
+import {
+  featuredJobPostPriceCents,
+  isStripeEnabled,
+  jobPostPriceLabel,
+  priceLabel,
+} from "@/lib/stripe";
 
 export const metadata: Metadata = {
   title: "Post a Job",
@@ -64,7 +69,8 @@ export default async function PostJobPage({ searchParams }: Props) {
             companyName={employer.company}
             applyEmail={employer.email}
             paid={paid}
-            priceLabel={jobPostPriceLabel()}
+            basicPriceLabel={jobPostPriceLabel()}
+            featuredPriceLabel={priceLabel(featuredJobPostPriceCents())}
           />
         ) : (
           <div className="rounded-lg border border-slate-200 bg-white p-6">

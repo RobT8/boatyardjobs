@@ -8,7 +8,8 @@ interface Props {
   companyName: string;
   applyEmail: string;
   paid: boolean;
-  priceLabel: string;
+  basicPriceLabel: string;
+  featuredPriceLabel: string;
 }
 
 const inputCls =
@@ -20,9 +21,11 @@ export default function PostJobWizard({
   companyName,
   applyEmail,
   paid,
-  priceLabel,
+  basicPriceLabel,
+  featuredPriceLabel,
 }: Props) {
   const [step, setStep] = useState(1);
+  const [tier, setTier] = useState<"basic" | "featured">("basic");
   const [preview, setPreview] = useState<{
     title: string;
     company: string;
@@ -221,9 +224,45 @@ export default function PostJobWizard({
               <p className="mt-3 whitespace-pre-line text-sm text-slate-600">{preview.description}</p>
             </div>
           )}
+          {paid && (
+            <div>
+              <p className="mb-2 text-sm font-medium text-navy-800">Choose your listing</p>
+              <input type="hidden" name="tier" value={tier} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setTier("basic")}
+                  className={`rounded-lg border p-4 text-left ${
+                    tier === "basic" ? "border-navy-600 bg-navy-50" : "border-slate-200"
+                  }`}
+                >
+                  <span className="flex items-center justify-between font-semibold text-navy-800">
+                    Basic <span>{basicPriceLabel}</span>
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-600">
+                    Standard 30-day listing on the board.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTier("featured")}
+                  className={`rounded-lg border p-4 text-left ${
+                    tier === "featured" ? "border-brass-400 bg-amber-50/60" : "border-slate-200"
+                  }`}
+                >
+                  <span className="flex items-center justify-between font-semibold text-navy-800">
+                    Featured <span>{featuredPriceLabel}</span>
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-600">
+                    Pinned to the top with a Featured badge + homepage carousel.
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
           <p className="text-xs text-slate-500">
             {paid
-              ? `Every listing is reviewed before going live. You'll be taken to secure Stripe checkout (${priceLabel}, 30-day listing).`
+              ? "Your listing goes live straight after secure Stripe checkout (30-day listing)."
               : "Free during launch. Every listing is reviewed before publishing."}
           </p>
           <div className="flex items-center justify-between border-t border-slate-100 pt-4">
@@ -234,7 +273,9 @@ export default function PostJobWizard({
               type="submit"
               className="rounded-md bg-brass-400 px-6 py-3 font-semibold text-navy-900 hover:bg-brass-500"
             >
-              {paid ? `Continue to payment — ${priceLabel}` : "Submit listing"}
+              {paid
+                ? `Continue to payment — ${tier === "featured" ? featuredPriceLabel : basicPriceLabel}`
+                : "Submit listing"}
             </button>
           </div>
         </div>

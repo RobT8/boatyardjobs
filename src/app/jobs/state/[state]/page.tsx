@@ -46,7 +46,7 @@ export default async function StateJobsPage({ params }: Props) {
         {total} open position{total === 1 ? "" : "s"} at boatyards, marinas and dealerships in{" "}
         {match.name}.
       </p>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {jobs.map((job) => (
           <JobCard key={job.id} job={job} />
         ))}

@@ -24,12 +24,25 @@ export function jobPostPriceCents(): number {
   return parseInt(process.env.JOB_POST_PRICE_CENTS ?? "9900", 10) || 9900;
 }
 
+/** Featured-tier price for a job post. */
+export function featuredJobPostPriceCents(): number {
+  return parseInt(process.env.JOB_POST_FEATURED_PRICE_CENTS ?? "24900", 10) || 24900;
+}
+
 export function currency(): string {
   return (process.env.STRIPE_CURRENCY ?? "usd").toLowerCase();
 }
 
-/** "$99" style label for display in the UI. */
+function symbol(): string {
+  return currency() === "gbp" ? "£" : currency() === "eur" ? "€" : "$";
+}
+
+/** "$99" style label from a cents amount. */
+export function priceLabel(cents: number): string {
+  return `${symbol()}${(cents / 100).toFixed(0)}`;
+}
+
+/** "$99" style label for the basic job post. */
 export function jobPostPriceLabel(): string {
-  const symbol = currency() === "gbp" ? "£" : currency() === "eur" ? "€" : "$";
-  return `${symbol}${(jobPostPriceCents() / 100).toFixed(0)}`;
+  return priceLabel(jobPostPriceCents());
 }

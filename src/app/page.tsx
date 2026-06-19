@@ -2,14 +2,16 @@ import Link from "next/link";
 import JobCard from "@/components/JobCard";
 import SearchForm from "@/components/SearchForm";
 import AlertSignupForm from "@/components/AlertSignupForm";
-import { countByCategory, countByState, listJobs } from "@/lib/jobs";
+import FeaturedCarousel from "@/components/FeaturedCarousel";
+import { countByCategory, countByState, listFeaturedJobs, listJobs } from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [{ jobs, total }, allStates, categories] = await Promise.all([
-    listJobs({ limit: 8 }),
+  const [{ jobs, total }, featured, allStates, categories] = await Promise.all([
+    listJobs({ limit: 9 }),
+    listFeaturedJobs(),
     countByState(),
     countByCategory(),
   ]);
@@ -33,6 +35,19 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {featured.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 pt-12">
+          <h2 className="text-2xl font-bold text-navy-800">Featured Jobs</h2>
+          <div className="mt-6">
+            <FeaturedCarousel>
+              {featured.map((job) => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </FeaturedCarousel>
+          </div>
+        </section>
+      )}
+
       <section className="mx-auto max-w-6xl px-4 py-12">
         <div className="flex items-baseline justify-between">
           <h2 className="text-2xl font-bold text-navy-800">Latest Jobs</h2>
@@ -40,7 +55,7 @@ export default async function HomePage() {
             View all {total} jobs →
           </Link>
         </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {jobs.map((job) => (
             <JobCard key={job.id} job={job} />
           ))}
