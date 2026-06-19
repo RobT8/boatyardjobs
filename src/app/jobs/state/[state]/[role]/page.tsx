@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import JobCard from "@/components/JobCard";
+import JobRow from "@/components/JobRow";
 import AlertSignupForm from "@/components/AlertSignupForm";
-import { countByStateAndCategory, listJobs } from "@/lib/jobs";
+import { countByStateAndCategory, fairlyRotate, getFeaturedJobs, listJobs } from "@/lib/jobs";
 import { ROLE_CATEGORIES, roleFromSlug, stateFromSlug } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +29,12 @@ export default async function StateRoleJobsPage({ params }: Props) {
   const roleMatch = roleFromSlug(role);
   if (!stateMatch || !roleMatch) notFound();
 
-  const [{ jobs, total }, counts] = await Promise.all([
-    listJobs({ state: stateMatch.code, category: roleMatch.slug, limit: 100 }),
+  const [featuredRaw, { jobs, total }, counts] = await Promise.all([
+    getFeaturedJobs({ state: stateMatch.code, category: roleMatch.slug }),
+    listJobs({ state: stateMatch.code, category: roleMatch.slug, excludeFeatured: true, limit: 100 }),
     countByStateAndCategory(),
   ]);
+  const featured = fairlyRotate(featuredRaw);
 
   // Other trades that actually have openings in this state — internal links that
   // help both candidates and Google discover the rest of the board.
@@ -57,18 +59,26 @@ export default async function StateRoleJobsPage({ params }: Props) {
       </h1>
       <p className="mt-2 max-w-2xl text-slate-600">{roleMatch.description}</p>
       <p className="mt-4 text-sm text-slate-500">
-        {total} open position{total === 1 ? "" : "s"} in {stateMatch.name}.{" "}
+        {total + featured.length} open position{total + featured.length === 1 ? "" : "s"} in{" "}
+        {stateMatch.name}.{" "}
         <Link href={`/jobs/role/${roleMatch.slug}`} className="text-navy-600 hover:underline">
           See {roleMatch.label.toLowerCase()} jobs nationwide →
         </Link>
       </p>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {featured.length > 0 && (
+        <div className="mt-6 space-y-3">
+          {featured.map((job) => (
+            <JobRow key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+      <div className="mt-3 space-y-3">
         {jobs.map((job) => (
-          <JobCard key={job.id} job={job} />
+          <JobRow key={job.id} job={job} />
         ))}
       </div>
-      {jobs.length === 0 && (
+      {jobs.length === 0 && featured.length === 0 && (
         <p className="mt-8 rounded-lg border border-dashed border-slate-300 p-10 text-center text-slate-500">
           No open {roleMatch.label.toLowerCase()} jobs in {stateMatch.name} right now — set an
           alert below and be first to know.
