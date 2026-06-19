@@ -32,6 +32,8 @@ export interface JobFilters {
   onlyFeatured?: boolean;
   /** Hide featured listings (so they can be shown separately at the top). */
   excludeFeatured?: boolean;
+  /** Result ordering for the main list. */
+  sort?: "newest" | "oldest" | "salary";
   limit?: number;
   offset?: number;
 }
@@ -70,10 +72,18 @@ export async function listJobs(filters: JobFilters = {}): Promise<{ jobs: Job[];
     }
   }
 
-  const { data, count, error } = await query
-    .order("featured", { ascending: false })
-    .order("posted_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  let ordered = query.order("featured", { ascending: false });
+  if (filters.sort === "oldest") {
+    ordered = ordered.order("posted_at", { ascending: true });
+  } else if (filters.sort === "salary") {
+    ordered = ordered
+      .order("salary_max", { ascending: false, nullsFirst: false })
+      .order("posted_at", { ascending: false });
+  } else {
+    ordered = ordered.order("posted_at", { ascending: false });
+  }
+
+  const { data, count, error } = await ordered.range(offset, offset + limit - 1);
 
   if (error) throw error;
   return { jobs: (data ?? []).map(normalize), total: count ?? 0 };
@@ -348,6 +358,51 @@ export async function expireMissingFromSource(source: string, seenUrls: string[]
     .in("id", staleIds);
   if (updErr) throw updErr;
   return staleIds.length;
+}
+
+const SECTION_HEADINGS = [
+  "Job Description",
+  "Job Summary",
+  "Position Summary",
+  "Overview",
+  "Responsibilities",
+  "Key Responsibilities",
+  "Essential Duties",
+  "Duties",
+  "Requirements",
+  "Qualifications",
+  "Required Qualifications",
+  "Preferred Qualifications",
+  "Skills",
+  "Experience",
+  "Education",
+  "Benefits",
+  "What We Offer",
+  "We Offer",
+  "Compensation",
+  "Pay",
+  "Schedule",
+  "Hours",
+  "About Us",
+  "About the Company",
+  "Why Join Us",
+];
+
+/**
+ * Split a job description into readable paragraphs. Sources that already use
+ * newlines split on those; run-on text (no newlines) gets paragraph breaks
+ * inserted before common section headings (e.g. "Requirements:").
+ */
+export function descriptionParagraphs(text: string): string[] {
+  let t = (text ?? "").replace(/\r/g, "").trim();
+  if (!t.includes("\n")) {
+    const re = new RegExp(`\\s+(${SECTION_HEADINGS.join("|")})\\s*:`, "gi");
+    t = t.replace(re, "\n\n$1:");
+  }
+  return t
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export function formatSalary(job: Job): string | null {

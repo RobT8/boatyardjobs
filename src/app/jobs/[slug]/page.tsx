@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AlertSignupForm from "@/components/AlertSignupForm";
 import SponsorSlot from "@/components/SponsorSlot";
-import { formatSalary, getJobBySlug, type Job } from "@/lib/jobs";
+import { descriptionParagraphs, formatSalary, getJobBySlug, type Job } from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
@@ -121,8 +121,10 @@ export default async function JobDetailPage({ params }: Props) {
         ))}
       </div>
 
-      <div className="prose prose-slate mt-8 max-w-none whitespace-pre-line">
-        {job.description}
+      <div className="prose prose-slate mt-8 max-w-none">
+        {descriptionParagraphs(job.description).map((p, i) => (
+          <p key={i}>{p}</p>
+        ))}
       </div>
 
       <div className="mt-8">
