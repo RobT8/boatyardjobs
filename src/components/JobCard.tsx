@@ -16,7 +16,7 @@ export default function JobCard({ job }: { job: Job }) {
   return (
     <Link
       href={`/jobs/${job.slug}`}
-      className={`block rounded-lg border p-4 transition hover:border-navy-600 hover:shadow-md ${
+      className={`flex h-full w-full flex-col rounded-lg border p-4 transition hover:border-navy-600 hover:shadow-md ${
         job.featured ? "border-brass-400 bg-amber-50/50" : "border-slate-200 bg-white"
       }`}
     >
