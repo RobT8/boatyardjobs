@@ -14,7 +14,7 @@ export default function NavMenu({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative">
+    <div className="static sm:relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -35,7 +35,7 @@ export default function NavMenu({
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
-          <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+          <div className="absolute left-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg sm:left-auto sm:right-0">
             {links.map(([linkLabel, href]) => (
               <Link
                 key={href}

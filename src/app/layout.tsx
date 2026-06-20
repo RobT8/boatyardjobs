@@ -30,7 +30,7 @@ function SiteHeader() {
           <span aria-hidden className="text-brass-400">⚓</span>
           Boatyard<span className="text-brass-400">Jobs</span>
         </Link>
-        <nav className="flex items-center gap-4 text-sm sm:gap-6">
+        <nav className="relative flex w-full items-center gap-4 text-sm sm:w-auto sm:gap-6">
           <NavMenu
             label="Employers"
             links={[
