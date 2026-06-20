@@ -17,12 +17,12 @@ export default function JobRow({ job }: { job: Job }) {
   return (
     <Link
       href={`/jobs/${job.slug}`}
-      className={`flex items-center justify-between gap-4 rounded-lg border px-4 py-3 transition hover:border-navy-600 hover:shadow-sm ${
+      className={`flex flex-col gap-2 rounded-lg border px-4 py-3 transition hover:border-navy-600 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${
         job.featured ? "border-brass-400 bg-amber-50/50" : "border-slate-200 bg-white"
       }`}
     >
       <div className="min-w-0">
-        <p className="truncate font-semibold text-navy-800">{job.title}</p>
+        <p className="font-semibold text-navy-800 line-clamp-2 sm:line-clamp-1">{job.title}</p>
         <p className="truncate text-sm text-slate-500">
           {job.company} · {job.city}, {US_STATES[job.state] ?? job.state} · {role}
         </p>
