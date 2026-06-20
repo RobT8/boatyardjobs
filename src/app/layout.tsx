@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import Link from "next/link";
 import PageViewTracker from "@/components/PageViewTracker";
-import AdvertiserMenu from "@/components/AdvertiserMenu";
-import EmployerMenu from "@/components/EmployerMenu";
+import NavMenu from "@/components/NavMenu";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
@@ -32,20 +31,35 @@ function SiteHeader() {
           Boatyard<span className="text-brass-400">Jobs</span>
         </Link>
         <nav className="flex items-center gap-4 text-sm sm:gap-6">
-          <Link href="/jobs" className="hover:text-brass-400">
-            Browse Jobs
-          </Link>
-          <Link href="/alerts" className="hover:text-brass-400">
-            Job Alerts
-          </Link>
-          <AdvertiserMenu />
-          <EmployerMenu />
-          <Link
-            href="/post-a-job"
-            className="rounded-md bg-brass-400 px-3 py-1.5 font-semibold text-navy-900 hover:bg-brass-500"
-          >
-            Post a Job
-          </Link>
+          <NavMenu
+            label="Employers"
+            links={[
+              ["Why post here", "/employers"],
+              ["Post a job", "/post-a-job"],
+              ["Feature your listings", "/employers/feature"],
+              ["My listings", "/employers/dashboard"],
+              ["My profile", "/employers/profile"],
+              ["Sign in", "/employers/login"],
+            ]}
+          />
+          <NavMenu
+            label="Candidates"
+            links={[
+              ["Browse jobs", "/jobs"],
+              ["Salary guides", "/salary"],
+              ["Job alerts", "/alerts"],
+            ]}
+          />
+          <NavMenu
+            label="Advertise"
+            links={[
+              ["Book advertising", "/advertise"],
+              ["Advertising guidelines", "/advertise/guidelines"],
+              ["My dashboard", "/advertise/dashboard"],
+              ["My profile", "/advertise/profile"],
+              ["Sign in", "/advertise/login"],
+            ]}
+          />
         </nav>
       </div>
     </header>
