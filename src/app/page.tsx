@@ -6,6 +6,7 @@ import AlertSignupForm from "@/components/AlertSignupForm";
 import FeaturedCarousel from "@/components/FeaturedCarousel";
 import {
   countByCategory,
+  countByCity,
   countByState,
   fairlyRotate,
   getFeaturedJobs,
@@ -17,15 +18,20 @@ import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [{ total }, featuredRaw, companies, allStates, categories] = await Promise.all([
+  const [{ total }, featuredRaw, companies, allStates, categories, allCities] = await Promise.all([
     listJobs({ limit: 1 }),
     getFeaturedJobs(),
     listCompanies(),
     countByState(),
     countByCategory(),
+    countByCity(),
   ]);
   const featured = fairlyRotate(featuredRaw);
   const states = allStates.slice(0, 10);
+  const stateOptions = allStates
+    .map((s) => ({ code: s.state, name: US_STATES[s.state] ?? s.state }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const cityOptions = allCities.map((c) => ({ city: c.city, state: c.state }));
 
   return (
     <>
@@ -40,7 +46,7 @@ export default async function HomePage() {
             boatyards, marinas and dealerships nationwide.
           </p>
           <div className="mt-8 rounded-lg bg-white p-4 shadow-lg">
-            <SearchForm companies={companies} />
+            <SearchForm states={stateOptions} cities={cityOptions} companies={companies} />
           </div>
         </div>
       </section>

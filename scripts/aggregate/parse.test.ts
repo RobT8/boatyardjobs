@@ -3,6 +3,7 @@ import {
   extractJobPostings,
   htmlToText,
   parseSalary,
+  sanitizeSalaryUnit,
   jobPostingToInput,
   parseJobsFromHtml,
 } from "./parse";
@@ -74,6 +75,23 @@ test("parseSalary keeps hourly as hourly", () => {
 test("parseSalary annualizes monthly amounts", () => {
   const s = parseSalary({ value: { value: 5000, unitText: "MONTH" } });
   assert.deepEqual(s, { salary_min: 60000, salary_max: 60000, salary_unit: "YEAR" });
+});
+
+test("parseSalary treats an unlabelled hourly-magnitude figure as hourly", () => {
+  // No unitText → defaults to YEAR, but $24 can only be an hourly rate.
+  const s = parseSalary({ value: { minValue: 18, maxValue: 24 } });
+  assert.deepEqual(s, { salary_min: 18, salary_max: 24, salary_unit: "HOUR" });
+});
+
+test("sanitizeSalaryUnit relabels low yearly figures, leaves real salaries alone", () => {
+  assert.deepEqual(
+    sanitizeSalaryUnit({ salary_min: 24, salary_max: 24, salary_unit: "YEAR" }),
+    { salary_min: 24, salary_max: 24, salary_unit: "HOUR" }
+  );
+  assert.deepEqual(
+    sanitizeSalaryUnit({ salary_min: 45000, salary_max: 70000, salary_unit: "YEAR" }),
+    { salary_min: 45000, salary_max: 70000, salary_unit: "YEAR" }
+  );
 });
 
 test("jobPostingToInput maps a full posting", () => {

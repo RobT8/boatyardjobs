@@ -104,6 +104,24 @@ interface SalaryParts {
   salary_unit: "YEAR" | "HOUR";
 }
 
+/**
+ * An hourly wage never exceeds this; a full-time annual salary is never below
+ * it. We use the gap to catch hourly rates that arrive labelled "per year" —
+ * a common shape from aggregators (notably Adzuna) that don't carry a pay
+ * period — so a $24/hr role isn't stored as a $24/year salary.
+ */
+export const MAX_PLAUSIBLE_HOURLY = 200;
+
+/** Reclassify an implausibly-low "annual" figure as hourly. No-op otherwise. */
+export function sanitizeSalaryUnit(parts: SalaryParts): SalaryParts {
+  if (parts.salary_unit === "HOUR") return parts;
+  const ref = parts.salary_max ?? parts.salary_min;
+  if (ref != null && ref <= MAX_PLAUSIBLE_HOURLY) {
+    return { ...parts, salary_unit: "HOUR" };
+  }
+  return parts;
+}
+
 /** Normalize schema.org baseSalary to our annual/hourly model. */
 export function parseSalary(baseSalary: any): SalaryParts {
   const empty: SalaryParts = { salary_min: null, salary_max: null, salary_unit: "YEAR" };
@@ -127,9 +145,11 @@ export function parseSalary(baseSalary: any): SalaryParts {
   const mult = factor[unitRaw] ?? 1;
   const scale = (n: number | null) => (n == null ? null : Math.round(n * mult));
 
-  return isHour
-    ? { salary_min: min, salary_max: max, salary_unit: "HOUR" }
-    : { salary_min: scale(min), salary_max: scale(max), salary_unit: "YEAR" };
+  return sanitizeSalaryUnit(
+    isHour
+      ? { salary_min: min, salary_max: max, salary_unit: "HOUR" }
+      : { salary_min: scale(min), salary_max: scale(max), salary_unit: "YEAR" }
+  );
 }
 
 function isUsAddress(address: any): boolean {

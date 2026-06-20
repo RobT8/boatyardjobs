@@ -80,6 +80,17 @@ export function stateSlug(code: string): string {
   return (US_STATES[code] ?? code).toLowerCase().replace(/\s+/g, "-");
 }
 
+/** URL slug for a free-form city name, e.g. "Fort Lauderdale" → "fort-lauderdale".
+ *  City pages are scoped under their state, so the slug only needs to be unique
+ *  within a state. */
+export function citySlug(city: string): string {
+  return city
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function stateFromSlug(slug: string): { code: string; name: string } | null {
   for (const [code, name] of Object.entries(US_STATES)) {
     if (stateSlug(code) === slug.toLowerCase()) return { code, name };

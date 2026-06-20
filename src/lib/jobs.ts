@@ -25,9 +25,10 @@ export interface Job {
 
 export interface JobFilters {
   q?: string;
-  state?: string;
-  category?: string;
-  company?: string;
+  state?: string | string[];
+  city?: string | string[];
+  category?: string | string[];
+  company?: string | string[];
   /** Only featured listings. */
   onlyFeatured?: boolean;
   /** Hide featured listings (so they can be shown separately at the top). */
@@ -36,6 +37,23 @@ export interface JobFilters {
   sort?: "newest" | "oldest" | "salary";
   limit?: number;
   offset?: number;
+}
+
+/**
+ * Apply an equality filter that accepts a single value or a list: one value
+ * uses `.eq`, several use `.in`, none is a no-op. Empty strings are dropped so
+ * an "All …" selection doesn't filter anything out.
+ */
+function applyMulti<Q>(query: Q, column: string, value?: string | string[], upper = false): Q {
+  const vals = (value == null ? [] : Array.isArray(value) ? value : [value])
+    .map((v) => (upper ? v.toUpperCase() : v))
+    .filter((v) => v !== "");
+  if (vals.length === 0) return query;
+  const q = query as unknown as {
+    eq: (c: string, v: string) => Q;
+    in: (c: string, v: string[]) => Q;
+  };
+  return vals.length === 1 ? q.eq(column, vals[0]) : q.in(column, vals);
 }
 
 /** Postgres returns jsonb already parsed; coerce defensively to a string[]. */
@@ -56,9 +74,10 @@ export async function listJobs(filters: JobFilters = {}): Promise<{ jobs: Job[];
     .select("*", { count: "exact" })
     .eq("status", "published");
 
-  if (filters.state) query = query.eq("state", filters.state.toUpperCase());
-  if (filters.category) query = query.eq("category", filters.category);
-  if (filters.company) query = query.eq("company", filters.company);
+  query = applyMulti(query, "state", filters.state, true);
+  query = applyMulti(query, "city", filters.city);
+  query = applyMulti(query, "category", filters.category);
+  query = applyMulti(query, "company", filters.company);
   if (filters.onlyFeatured) query = query.gt("featured", 0);
   if (filters.excludeFeatured) query = query.eq("featured", 0);
   if (filters.q) {
@@ -97,9 +116,10 @@ export async function getFeaturedJobs(filters: JobFilters = {}): Promise<Job[]> 
     .select("*")
     .eq("status", "published")
     .gt("featured", 0);
-  if (filters.state) query = query.eq("state", filters.state.toUpperCase());
-  if (filters.category) query = query.eq("category", filters.category);
-  if (filters.company) query = query.eq("company", filters.company);
+  query = applyMulti(query, "state", filters.state, true);
+  query = applyMulti(query, "city", filters.city);
+  query = applyMulti(query, "category", filters.category);
+  query = applyMulti(query, "company", filters.company);
   const { data, error } = await query.order("id", { ascending: true }).limit(100);
   if (error) throw error;
   return (data ?? []).map(normalize);
@@ -158,6 +178,49 @@ export async function countByStateAndCategory(): Promise<
   const { data, error } = await getDb().from("job_counts_by_state_category").select("*");
   if (error) throw error;
   return (data ?? []) as { state: string; category: string; n: number }[];
+}
+
+export interface CityCount {
+  /** Canonical display name — the most common stored spelling for the city. */
+  city: string;
+  state: string;
+  n: number;
+}
+
+/**
+ * Published-job counts per (city, state), aggregated in-app from the live rows.
+ * Unlike the state/category counts there's no dedicated DB view, because city is
+ * free-form upstream text: we fold case/spelling variants together on the
+ * slug and surface the most common spelling as the display name. Powers the
+ * programmatic city landing pages, their cross-links and the sitemap.
+ */
+export async function countByCity(): Promise<CityCount[]> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select("city, state")
+    .eq("status", "published");
+  if (error) throw error;
+
+  // Group on (state, lowercased city); track each raw spelling's frequency so we
+  // can pick the most common as the canonical display name.
+  const groups = new Map<string, { state: string; n: number; spellings: Map<string, number> }>();
+  for (const row of (data ?? []) as { city: string | null; state: string | null }[]) {
+    const city = row.city?.trim();
+    const state = row.state?.trim();
+    if (!city || !state) continue;
+    const key = `${state}|${city.toLowerCase()}`;
+    const g = groups.get(key) ?? { state, n: 0, spellings: new Map() };
+    g.n++;
+    g.spellings.set(city, (g.spellings.get(city) ?? 0) + 1);
+    groups.set(key, g);
+  }
+
+  return [...groups.values()]
+    .map((g) => {
+      const city = [...g.spellings.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      return { city, state: g.state, n: g.n };
+    })
+    .sort((a, b) => b.n - a.n);
 }
 
 export async function recordApplyClick(jobId: number): Promise<void> {
