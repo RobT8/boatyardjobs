@@ -1,5 +1,5 @@
 import type { SourceAdapter } from "../types";
-import { htmlToText } from "../parse";
+import { htmlToText, sanitizeSalaryUnit } from "../parse";
 import type { NewJobInput } from "../../../src/lib/jobs";
 import {
   inferCategory,
@@ -102,8 +102,14 @@ function toInput(r: any): NewJobInput | null {
 
   // Adzuna flags estimated salaries; only keep employer-stated figures.
   const predicted = String(r?.salary_is_predicted ?? "0") === "1";
-  const salary_min = !predicted && r?.salary_min ? Math.round(Number(r.salary_min)) : null;
-  const salary_max = !predicted && r?.salary_max ? Math.round(Number(r.salary_max)) : null;
+  const rawMin = !predicted && r?.salary_min ? Math.round(Number(r.salary_min)) : null;
+  const rawMax = !predicted && r?.salary_max ? Math.round(Number(r.salary_max)) : null;
+  // Adzuna reports no pay period; relabel hourly-magnitude figures as hourly.
+  const { salary_min, salary_max, salary_unit } = sanitizeSalaryUnit({
+    salary_min: rawMin,
+    salary_max: rawMax,
+    salary_unit: "YEAR",
+  });
 
   return {
     title,
@@ -115,7 +121,7 @@ function toInput(r: any): NewJobInput | null {
     description,
     salary_min,
     salary_max,
-    salary_unit: "YEAR",
+    salary_unit,
     certifications: inferCertifications(haystack),
     source: "adzuna",
     source_url: r?.redirect_url ? String(r.redirect_url) : null,
