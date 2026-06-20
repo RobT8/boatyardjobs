@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { countByState, countByStateAndCategory, listJobs } from "@/lib/jobs";
-import { ROLE_CATEGORIES, stateSlug } from "@/lib/taxonomy";
+import { countByCity, countByState, countByStateAndCategory, listJobs } from "@/lib/jobs";
+import { citySlug, ROLE_CATEGORIES, stateSlug } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
 
@@ -8,10 +8,11 @@ const ROLE_SLUGS = new Set(ROLE_CATEGORIES.map((r) => r.slug));
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.SITE_URL ?? "https://boatyardjobs.com";
-  const [{ jobs }, states, stateRoleCounts] = await Promise.all([
+  const [{ jobs }, states, stateRoleCounts, cities] = await Promise.all([
     listJobs({ limit: 1000 }),
     countByState(),
     countByStateAndCategory(),
+    countByCity(),
   ]);
 
   return [
@@ -30,6 +31,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${base}/jobs/state/${stateSlug(state)}`,
       changeFrequency: "daily" as const,
       priority: 0.8,
+    })),
+    // City landing pages — one per city with live inventory.
+    ...cities.map((c) => ({
+      url: `${base}/jobs/city/${stateSlug(c.state)}/${citySlug(c.city)}`,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
     })),
     // state×role landing pages — only those with live inventory, to keep thin
     // (empty) combinations out of the index.

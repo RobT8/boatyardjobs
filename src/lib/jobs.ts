@@ -26,6 +26,7 @@ export interface Job {
 export interface JobFilters {
   q?: string;
   state?: string;
+  city?: string;
   category?: string;
   company?: string;
   /** Only featured listings. */
@@ -57,6 +58,7 @@ export async function listJobs(filters: JobFilters = {}): Promise<{ jobs: Job[];
     .eq("status", "published");
 
   if (filters.state) query = query.eq("state", filters.state.toUpperCase());
+  if (filters.city) query = query.eq("city", filters.city);
   if (filters.category) query = query.eq("category", filters.category);
   if (filters.company) query = query.eq("company", filters.company);
   if (filters.onlyFeatured) query = query.gt("featured", 0);
@@ -98,6 +100,7 @@ export async function getFeaturedJobs(filters: JobFilters = {}): Promise<Job[]> 
     .eq("status", "published")
     .gt("featured", 0);
   if (filters.state) query = query.eq("state", filters.state.toUpperCase());
+  if (filters.city) query = query.eq("city", filters.city);
   if (filters.category) query = query.eq("category", filters.category);
   if (filters.company) query = query.eq("company", filters.company);
   const { data, error } = await query.order("id", { ascending: true }).limit(100);
@@ -158,6 +161,49 @@ export async function countByStateAndCategory(): Promise<
   const { data, error } = await getDb().from("job_counts_by_state_category").select("*");
   if (error) throw error;
   return (data ?? []) as { state: string; category: string; n: number }[];
+}
+
+export interface CityCount {
+  /** Canonical display name — the most common stored spelling for the city. */
+  city: string;
+  state: string;
+  n: number;
+}
+
+/**
+ * Published-job counts per (city, state), aggregated in-app from the live rows.
+ * Unlike the state/category counts there's no dedicated DB view, because city is
+ * free-form upstream text: we fold case/spelling variants together on the
+ * slug and surface the most common spelling as the display name. Powers the
+ * programmatic city landing pages, their cross-links and the sitemap.
+ */
+export async function countByCity(): Promise<CityCount[]> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select("city, state")
+    .eq("status", "published");
+  if (error) throw error;
+
+  // Group on (state, lowercased city); track each raw spelling's frequency so we
+  // can pick the most common as the canonical display name.
+  const groups = new Map<string, { state: string; n: number; spellings: Map<string, number> }>();
+  for (const row of (data ?? []) as { city: string | null; state: string | null }[]) {
+    const city = row.city?.trim();
+    const state = row.state?.trim();
+    if (!city || !state) continue;
+    const key = `${state}|${city.toLowerCase()}`;
+    const g = groups.get(key) ?? { state, n: 0, spellings: new Map() };
+    g.n++;
+    g.spellings.set(city, (g.spellings.get(city) ?? 0) + 1);
+    groups.set(key, g);
+  }
+
+  return [...groups.values()]
+    .map((g) => {
+      const city = [...g.spellings.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      return { city, state: g.state, n: g.n };
+    })
+    .sort((a, b) => b.n - a.n);
 }
 
 export async function recordApplyClick(jobId: number): Promise<void> {
