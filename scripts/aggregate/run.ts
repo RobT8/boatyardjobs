@@ -1,4 +1,9 @@
-import { upsertSourcedJob, expireMissingFromSource } from "../../src/lib/jobs";
+import {
+  upsertSourcedJob,
+  expireMissingFromSource,
+  expireAgedFeedJobs,
+  FEED_MAX_AGE_MONTHS,
+} from "../../src/lib/jobs";
 import type { SourceAdapter } from "./types";
 import { adzunaSource } from "./sources/adzuna";
 import { createAdpSource } from "./sources/adp";
@@ -117,8 +122,15 @@ async function main() {
     }
   }
 
+  // Hard age cap: retire feed listings older than the cap even if they're still
+  // upstream. Runs once, after all sources, so a source that failed this pass
+  // still has its aged rows swept. Direct (site-bought) ads are exempt.
+  const aged = await expireAgedFeedJobs();
+  expired += aged;
+
   console.log(
-    `Aggregation complete: ${created} new, ${updated} updated, ${expired} expired.`
+    `Aggregation complete: ${created} new, ${updated} updated, ${expired} expired ` +
+      `(${aged} of them past the ${FEED_MAX_AGE_MONTHS}-month feed age cap).`
   );
 }
 

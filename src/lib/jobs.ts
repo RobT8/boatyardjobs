@@ -325,6 +325,22 @@ export async function publishPaidJob(jobId: number): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * Hard age cap for listings pulled from an external feed: anything still on the
+ * board past this many months is retired, even if it's still appearing upstream
+ * (some employers leave evergreen reqs posted long after they're filled). Ads
+ * bought directly through the site (source 'direct') are NEVER age-capped — they
+ * stay until the buyer/admin pulls them.
+ */
+export const FEED_MAX_AGE_MONTHS = 9;
+
+/** ISO timestamp `months` calendar-months before now (used as an age cutoff). */
+function monthsAgoIso(months: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString();
+}
+
 export type UpsertResult = "created" | "updated" | "unchanged";
 
 /** True if a published job with the same title/company/state already exists —
@@ -354,6 +370,28 @@ async function publishedDuplicateExists(
 export async function upsertSourcedJob(input: NewJobInput): Promise<UpsertResult> {
   const db = getDb();
   const source = input.source ?? "direct";
+
+  // Age cap: a feed listing past FEED_MAX_AGE_MONTHS must never be on the board,
+  // even though it's still coming back upstream. Retire it if we already hold it,
+  // and never (re)insert it. Without this, the upsert below would flip an
+  // age-expired row back to 'published' on every run. Direct ads are exempt.
+  if (
+    source !== "direct" &&
+    input.posted_at != null &&
+    input.posted_at < monthsAgoIso(FEED_MAX_AGE_MONTHS)
+  ) {
+    if (input.source_url) {
+      const { error } = await db
+        .from("jobs")
+        .update({ status: "expired" })
+        .eq("source", source)
+        .eq("source_url", input.source_url)
+        .eq("status", "published");
+      if (error) throw error;
+    }
+    return "unchanged";
+  }
+
   if (!input.source_url) {
     // No stable upstream key — only insert if it isn't already on the board.
     if (await publishedDuplicateExists(input)) return "unchanged";
@@ -443,6 +481,27 @@ export async function expireMissingFromSource(source: string, seenUrls: string[]
     .in("id", staleIds);
   if (updErr) throw updErr;
   return staleIds.length;
+}
+
+/**
+ * Retire every published feed listing older than `maxAgeMonths`, regardless of
+ * whether it still appears upstream. Ads bought directly through the site
+ * (source 'direct') are exempt and never age out. Returns the number expired.
+ *
+ * This is the authoritative, source-independent enforcement of the age cap: it
+ * runs once per aggregation pass (after the per-source loop) so a source whose
+ * fetch failed that run still gets its aged rows swept.
+ */
+export async function expireAgedFeedJobs(maxAgeMonths = FEED_MAX_AGE_MONTHS): Promise<number> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .update({ status: "expired" })
+    .eq("status", "published")
+    .neq("source", "direct")
+    .lt("posted_at", monthsAgoIso(maxAgeMonths))
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
 }
 
 const SECTION_HEADINGS = [
