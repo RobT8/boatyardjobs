@@ -69,6 +69,7 @@ function SiteFooter() {
           <p className="font-semibold text-white">For Candidates</p>
           <ul className="mt-2 space-y-1">
             <li><Link href="/jobs" className="hover:text-brass-400">Browse all jobs</Link></li>
+            <li><Link href="/salary" className="hover:text-brass-400">Salary guides</Link></li>
             <li><Link href="/alerts" className="hover:text-brass-400">Set up job alerts</Link></li>
           </ul>
         </div>

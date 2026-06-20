@@ -45,6 +45,10 @@ export default async function RoleJobsPage({ params }: Props) {
       <p className="mt-2 max-w-2xl text-slate-600">{match.description}</p>
       <p className="mt-4 text-sm text-slate-500">
         {total + featured.length} open position{total + featured.length === 1 ? "" : "s"}
+        {" · "}
+        <Link href={`/salary/${match.slug}`} className="text-navy-600 hover:underline">
+          {match.label} salary guide →
+        </Link>
       </p>
       {featured.length > 0 && (
         <div className="mt-4 space-y-3">

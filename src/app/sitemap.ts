@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { countByCity, countByState, countByStateAndCategory, listJobs } from "@/lib/jobs";
+import { statesWithSalary } from "@/lib/salary";
 import { citySlug, ROLE_CATEGORIES, stateSlug } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
@@ -8,11 +9,18 @@ const ROLE_SLUGS = new Set(ROLE_CATEGORIES.map((r) => r.slug));
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.SITE_URL ?? "https://boatyardjobs.com";
-  const [{ jobs }, states, stateRoleCounts, cities] = await Promise.all([
+  const [{ jobs }, states, stateRoleCounts, cities, salaryStates] = await Promise.all([
     listJobs({ limit: 1000 }),
     countByState(),
     countByStateAndCategory(),
     countByCity(),
+    // For each role, the states with enough salaried inventory for a credible page.
+    Promise.all(
+      ROLE_CATEGORIES.map(async (r) => ({
+        role: r.slug,
+        states: await statesWithSalary(r.slug),
+      }))
+    ),
   ]);
 
   return [
@@ -47,6 +55,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "daily" as const,
         priority: 0.7,
       })),
+    // Salary guides: the hub, one per role, and role×state where the sample is
+    // big enough to publish a credible figure.
+    { url: `${base}/salary`, changeFrequency: "weekly" as const, priority: 0.6 },
+    ...ROLE_CATEGORIES.map((r) => ({
+      url: `${base}/salary/${r.slug}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    })),
+    ...salaryStates.flatMap(({ role, states: ss }) =>
+      ss.map((s) => ({
+        url: `${base}/salary/${role}/${stateSlug(s.state)}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.5,
+      }))
+    ),
     ...jobs.map((job) => ({
       url: `${base}/jobs/${job.slug}`,
       lastModified: job.posted_at,
