@@ -17,7 +17,7 @@ export default function JobRow({ job }: { job: Job }) {
   return (
     <Link
       href={`/jobs/${job.slug}`}
-      className={`flex flex-col gap-2 rounded-lg border px-4 py-3 transition hover:border-navy-600 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${
+      className={`flex flex-col gap-2 rounded-lg border px-4 py-3 transition hover:border-navy-600 hover:shadow-sm sm:flex-row sm:items-stretch sm:justify-between sm:gap-4 ${
         job.featured ? "border-brass-400 bg-amber-50/50" : "border-slate-200 bg-white"
       }`}
     >
@@ -28,18 +28,20 @@ export default function JobRow({ job }: { job: Job }) {
         </p>
         <span className="mt-0.5 text-xs text-slate-400 sm:hidden">{timeAgo(job.posted_at)}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {salary ? (
-          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-            {salary}
-          </span>
-        ) : null}
-        {job.featured ? (
-          <span className="rounded-full bg-brass-400 px-2.5 py-0.5 text-xs font-semibold text-navy-900">
-            Featured
-          </span>
-        ) : null}
-        <span className="hidden text-xs text-slate-400 md:inline">{timeAgo(job.posted_at)}</span>
+      <div className="flex shrink-0 flex-col items-end justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {salary ? (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+              {salary}
+            </span>
+          ) : null}
+          {job.featured ? (
+            <span className="rounded-full bg-brass-400 px-2.5 py-0.5 text-xs font-semibold text-navy-900">
+              Featured
+            </span>
+          ) : null}
+          <span className="hidden text-xs text-slate-400 md:inline">{timeAgo(job.posted_at)}</span>
+        </div>
         <span className="whitespace-nowrap rounded-md border border-navy-600 px-3 py-1.5 text-xs font-semibold text-navy-700">
           View details →
         </span>
