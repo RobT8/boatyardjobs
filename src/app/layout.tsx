@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 function SiteHeader() {
   return (
     <header className="bg-navy-900 text-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <Link href="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <span aria-hidden className="text-brass-400">⚓</span>
           Boatyard<span className="text-brass-400">Jobs</span>
