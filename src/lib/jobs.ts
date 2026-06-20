@@ -25,10 +25,10 @@ export interface Job {
 
 export interface JobFilters {
   q?: string;
-  state?: string;
-  city?: string;
-  category?: string;
-  company?: string;
+  state?: string | string[];
+  city?: string | string[];
+  category?: string | string[];
+  company?: string | string[];
   /** Only featured listings. */
   onlyFeatured?: boolean;
   /** Hide featured listings (so they can be shown separately at the top). */
@@ -37,6 +37,23 @@ export interface JobFilters {
   sort?: "newest" | "oldest" | "salary";
   limit?: number;
   offset?: number;
+}
+
+/**
+ * Apply an equality filter that accepts a single value or a list: one value
+ * uses `.eq`, several use `.in`, none is a no-op. Empty strings are dropped so
+ * an "All …" selection doesn't filter anything out.
+ */
+function applyMulti<Q>(query: Q, column: string, value?: string | string[], upper = false): Q {
+  const vals = (value == null ? [] : Array.isArray(value) ? value : [value])
+    .map((v) => (upper ? v.toUpperCase() : v))
+    .filter((v) => v !== "");
+  if (vals.length === 0) return query;
+  const q = query as unknown as {
+    eq: (c: string, v: string) => Q;
+    in: (c: string, v: string[]) => Q;
+  };
+  return vals.length === 1 ? q.eq(column, vals[0]) : q.in(column, vals);
 }
 
 /** Postgres returns jsonb already parsed; coerce defensively to a string[]. */
@@ -57,10 +74,10 @@ export async function listJobs(filters: JobFilters = {}): Promise<{ jobs: Job[];
     .select("*", { count: "exact" })
     .eq("status", "published");
 
-  if (filters.state) query = query.eq("state", filters.state.toUpperCase());
-  if (filters.city) query = query.eq("city", filters.city);
-  if (filters.category) query = query.eq("category", filters.category);
-  if (filters.company) query = query.eq("company", filters.company);
+  query = applyMulti(query, "state", filters.state, true);
+  query = applyMulti(query, "city", filters.city);
+  query = applyMulti(query, "category", filters.category);
+  query = applyMulti(query, "company", filters.company);
   if (filters.onlyFeatured) query = query.gt("featured", 0);
   if (filters.excludeFeatured) query = query.eq("featured", 0);
   if (filters.q) {
@@ -99,10 +116,10 @@ export async function getFeaturedJobs(filters: JobFilters = {}): Promise<Job[]> 
     .select("*")
     .eq("status", "published")
     .gt("featured", 0);
-  if (filters.state) query = query.eq("state", filters.state.toUpperCase());
-  if (filters.city) query = query.eq("city", filters.city);
-  if (filters.category) query = query.eq("category", filters.category);
-  if (filters.company) query = query.eq("company", filters.company);
+  query = applyMulti(query, "state", filters.state, true);
+  query = applyMulti(query, "city", filters.city);
+  query = applyMulti(query, "category", filters.category);
+  query = applyMulti(query, "company", filters.company);
   const { data, error } = await query.order("id", { ascending: true }).limit(100);
   if (error) throw error;
   return (data ?? []).map(normalize);
