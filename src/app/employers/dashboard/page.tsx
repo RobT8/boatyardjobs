@@ -114,6 +114,20 @@ export default async function EmployerDashboardPage() {
           ))
         )}
       </div>
+
+      <div className="mt-10 rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+        <p className="font-semibold text-navy-800">Want to advertise too?</p>
+        <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
+          Promote your yard or dealership with a banner across BoatyardJobs — reach marine trades
+          candidates beyond your job listings.
+        </p>
+        <Link
+          href="/advertise"
+          className="mt-4 inline-block rounded-md bg-navy-800 px-5 py-2 text-sm font-semibold text-white hover:bg-navy-700"
+        >
+          Explore advertising →
+        </Link>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { Geist } from "next/font/google";
 import Link from "next/link";
 import PageViewTracker from "@/components/PageViewTracker";
 import NavMenu from "@/components/NavMenu";
+import { getSessionEmployer } from "@/lib/employer-auth";
+import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
@@ -22,7 +24,38 @@ export const metadata: Metadata = {
     : {}),
 };
 
-function SiteHeader() {
+async function SiteHeader() {
+  // Session-aware so the account submenus only surface "My listings" / "My
+  // profile" once you're signed in. Reading cookies here makes the header
+  // (and so the site) render per-request, which it already does throughout.
+  const [employer, advertiser] = await Promise.all([
+    getSessionEmployer(),
+    getSessionAdvertiser(),
+  ]);
+
+  const employerLinks: [string, string][] = [
+    ["Post a job", "/post-a-job"],
+    ["Why post here", "/employers"],
+    ["Feature your listings", "/employers/feature"],
+    ...(employer
+      ? ([
+          ["My listings", "/employers/dashboard"],
+          ["My profile", "/employers/profile"],
+        ] as [string, string][])
+      : []),
+  ];
+
+  const advertiseLinks: [string, string][] = [
+    ["Book advertising", "/advertise"],
+    ["Advertising guidelines", "/advertise/guidelines"],
+    ...(advertiser
+      ? ([
+          ["My dashboard", "/advertise/dashboard"],
+          ["My profile", "/advertise/profile"],
+        ] as [string, string][])
+      : []),
+  ];
+
   return (
     <header className="bg-navy-900 text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -31,33 +64,22 @@ function SiteHeader() {
           Boatyard<span className="text-brass-400">Jobs</span>
         </Link>
         <nav className="relative flex w-full items-center gap-4 text-sm sm:w-auto sm:gap-6">
-          <NavMenu
-            label="Employers"
-            links={[
-              ["Why post here", "/employers"],
-              ["Post a job", "/post-a-job"],
-              ["Feature your listings", "/employers/feature"],
-              ["My listings", "/employers/dashboard"],
-              ["My profile", "/employers/profile"],
-              ["Sign in", "/employers/login"],
-            ]}
-          />
+          <NavMenu label="Employers" links={employerLinks} />
           <NavMenu
             label="Candidates"
             links={[
               ["Browse jobs", "/jobs"],
               ["Salary guides", "/salary"],
+              ["Certifications guide", "/certifications"],
               ["Job alerts", "/alerts"],
             ]}
           />
+          <NavMenu label="Advertise" links={advertiseLinks} />
           <NavMenu
-            label="Advertise"
+            label="Log in"
             links={[
-              ["Book advertising", "/advertise"],
-              ["Advertising guidelines", "/advertise/guidelines"],
-              ["My dashboard", "/advertise/dashboard"],
-              ["My profile", "/advertise/profile"],
-              ["Sign in", "/advertise/login"],
+              ["Employer sign in", "/employers/login"],
+              ["Advertiser sign in", "/advertise/login"],
             ]}
           />
         </nav>
@@ -84,6 +106,7 @@ function SiteFooter() {
           <ul className="mt-2 space-y-1">
             <li><Link href="/jobs" className="hover:text-brass-400">Browse all jobs</Link></li>
             <li><Link href="/salary" className="hover:text-brass-400">Salary guides</Link></li>
+            <li><Link href="/certifications" className="hover:text-brass-400">Certifications guide</Link></li>
             <li><Link href="/alerts" className="hover:text-brass-400">Set up job alerts</Link></li>
           </ul>
         </div>
