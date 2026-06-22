@@ -25,8 +25,8 @@ export const metadata: Metadata = {
 };
 
 async function SiteHeader() {
-  // Session-aware so the account submenus only surface "My listings" / "My
-  // profile" once you're signed in. Reading cookies here makes the header
+  // Session-aware so the account submenus only surface the dashboard / "My
+  // profile" links once you're signed in. Reading cookies here makes the header
   // (and so the site) render per-request, which it already does throughout.
   const [employer, advertiser] = await Promise.all([
     getSessionEmployer(),
@@ -36,10 +36,9 @@ async function SiteHeader() {
   const employerLinks: [string, string][] = [
     ["Post a job", "/post-a-job"],
     ["Why post here", "/employers"],
-    ["Feature your listings", "/employers/feature"],
     ...(employer
       ? ([
-          ["My listings", "/employers/dashboard"],
+          ["My Dashboard", "/employers/dashboard"],
           ["My profile", "/employers/profile"],
         ] as [string, string][])
       : []),
@@ -69,9 +68,9 @@ async function SiteHeader() {
             label="Candidates"
             links={[
               ["Browse jobs", "/jobs"],
+              ["Job alerts", "/alerts"],
               ["Salary guides", "/salary"],
               ["Certifications guide", "/certifications"],
-              ["Job alerts", "/alerts"],
             ]}
           />
           <NavMenu label="Advertise" links={advertiseLinks} />
