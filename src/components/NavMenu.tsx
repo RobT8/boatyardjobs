@@ -92,10 +92,11 @@ export default function NavMenu({
                 {item[0]}
               </Link>
             ) : (
+              // No onClick close: closing here unmounts the form before it can
+              // submit. The POST redirects and reloads the page anyway.
               <form key={item.action} action={item.action} method="post">
                 <button
                   type="submit"
-                  onClick={() => setOpen(false)}
                   className="block w-full px-4 py-2 text-left text-sm text-navy-800 hover:bg-navy-50"
                 >
                   {item.label}
