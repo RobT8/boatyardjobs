@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import Link from "next/link";
 import PageViewTracker from "@/components/PageViewTracker";
-import NavMenu from "@/components/NavMenu";
+import NavMenu, { type MenuItem } from "@/components/NavMenu";
 import { getSessionEmployer } from "@/lib/employer-auth";
 import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 import "./globals.css";
@@ -55,6 +55,14 @@ async function SiteHeader() {
       : []),
   ];
 
+  // Sign-in links for account types you're not in; sign-out for those you are.
+  const authLinks: MenuItem[] = [
+    ...(employer ? [] : ([["Employer sign in", "/employers/login"]] as MenuItem[])),
+    ...(advertiser ? [] : ([["Advertiser sign in", "/advertise/login"]] as MenuItem[])),
+    ...(employer ? ([{ label: "Sign out (Employer)", action: "/api/employer/logout" }] as MenuItem[]) : []),
+    ...(advertiser ? ([{ label: "Sign out (Advertiser)", action: "/api/ads/logout" }] as MenuItem[]) : []),
+  ];
+
   return (
     <header className="bg-navy-900 text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -74,13 +82,7 @@ async function SiteHeader() {
             ]}
           />
           <NavMenu label="Advertise" links={advertiseLinks} />
-          <NavMenu
-            label="Log in"
-            links={[
-              ["Employer sign in", "/employers/login"],
-              ["Advertiser sign in", "/advertise/login"],
-            ]}
-          />
+          <NavMenu label={employer || advertiser ? "Account" : "Log in"} links={authLinks} />
         </nav>
       </div>
     </header>

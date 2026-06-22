@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 /**
+ * A dropdown item: a `[label, href]` link, or a `{label, action}` form button
+ * that POSTs to `action` (used for sign-out).
+ */
+export type MenuItem = [string, string] | { label: string; action: string };
+
+/**
  * A header nav item whose dropdown opens on mouse hover *and* on click/tap.
  * Hover is mouse-only (via pointer type) so touch devices fall back to a clean
  * tap-to-toggle; a short close delay bridges the gap between the button and the
@@ -14,7 +20,7 @@ export default function NavMenu({
   links,
 }: {
   label: string;
-  links: [string, string][];
+  links: MenuItem[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -75,16 +81,28 @@ export default function NavMenu({
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg sm:left-auto sm:right-0">
-          {links.map(([linkLabel, href]) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setOpen(false)}
-              className="block px-4 py-2 text-sm text-navy-800 hover:bg-navy-50"
-            >
-              {linkLabel}
-            </Link>
-          ))}
+          {links.map((item) =>
+            Array.isArray(item) ? (
+              <Link
+                key={item[1]}
+                href={item[1]}
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-sm text-navy-800 hover:bg-navy-50"
+              >
+                {item[0]}
+              </Link>
+            ) : (
+              <form key={item.action} action={item.action} method="post">
+                <button
+                  type="submit"
+                  onClick={() => setOpen(false)}
+                  className="block w-full px-4 py-2 text-left text-sm text-navy-800 hover:bg-navy-50"
+                >
+                  {item.label}
+                </button>
+              </form>
+            )
+          )}
         </div>
       )}
     </div>
