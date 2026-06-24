@@ -2,6 +2,7 @@ import {
   upsertSourcedJob,
   expireMissingFromSource,
   expireAgedFeedJobs,
+  expireOverdueDirectJobs,
   FEED_MAX_AGE_MONTHS,
 } from "../../src/lib/jobs";
 import type { SourceAdapter } from "./types";
@@ -128,9 +129,15 @@ async function main() {
   const aged = await expireAgedFeedJobs();
   expired += aged;
 
+  // Retire site-bought listings whose 30-day run has elapsed. Independent of the
+  // feed sources above, so it runs every day regardless of which adapters ran.
+  const overdueDirect = await expireOverdueDirectJobs();
+  expired += overdueDirect;
+
   console.log(
     `Aggregation complete: ${created} new, ${updated} updated, ${expired} expired ` +
-      `(${aged} of them past the ${FEED_MAX_AGE_MONTHS}-month feed age cap).`
+      `(${aged} past the ${FEED_MAX_AGE_MONTHS}-month feed age cap, ` +
+      `${overdueDirect} direct listings past their run).`
   );
 }
 

@@ -257,7 +257,24 @@ export function slugify(input: string): string {
     .slice(0, 80);
 }
 
+/**
+ * How long a site-bought ("direct") listing stays live before it expires.
+ * Feed-aggregated listings don't use this — they're governed by the
+ * upstream-vanish and age-cap logic instead.
+ */
+export const DIRECT_JOB_DAYS = 30;
+
+/** ISO timestamp `days` days after `fromIso` (defaults to now). */
+export function addDaysIso(fromIso: string | undefined, days: number): string {
+  const d = fromIso ? new Date(fromIso) : new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
+
 function toRow(input: NewJobInput, slug: string) {
+  const source = input.source ?? "direct";
+  const status = input.status ?? "published";
+  const posted_at = input.posted_at ?? new Date().toISOString();
   return {
     slug,
     title: input.title,
@@ -271,13 +288,19 @@ function toRow(input: NewJobInput, slug: string) {
     salary_max: input.salary_max ?? null,
     salary_unit: input.salary_unit ?? "YEAR",
     certifications: input.certifications ?? [],
-    source: input.source ?? "direct",
+    source,
     source_url: input.source_url ?? null,
     apply_email: input.apply_email ?? null,
-    status: input.status ?? "published",
-    posted_at: input.posted_at ?? new Date().toISOString(),
+    status,
+    posted_at,
     employer_id: input.employer_id ?? null,
     featured: input.featured ?? 0,
+    // A direct listing that's already published gets a fixed run; one created
+    // as 'unpaid' has its expiry stamped at publish time (see publishPaidJob).
+    expires_at:
+      source === "direct" && status === "published"
+        ? addDaysIso(posted_at, DIRECT_JOB_DAYS)
+        : null,
   };
 }
 
@@ -315,9 +338,15 @@ export async function setJobStripeSession(id: number, sessionId: string): Promis
  * published (so repeated webhook deliveries are safe). Returns whether it acted.
  */
 export async function publishPaidJob(jobId: number): Promise<boolean> {
+  const now = new Date().toISOString();
   const { data, error } = await getDb()
     .from("jobs")
-    .update({ status: "published", posted_at: new Date().toISOString() })
+    .update({
+      status: "published",
+      posted_at: now,
+      // Start the paid run from the moment payment clears.
+      expires_at: addDaysIso(now, DIRECT_JOB_DAYS),
+    })
     .eq("id", jobId)
     .eq("status", "unpaid")
     .select("id");
@@ -499,6 +528,24 @@ export async function expireAgedFeedJobs(maxAgeMonths = FEED_MAX_AGE_MONTHS): Pr
     .eq("status", "published")
     .neq("source", "direct")
     .lt("posted_at", monthsAgoIso(maxAgeMonths))
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
+/**
+ * Retire every direct (site-bought) listing whose fixed run has elapsed, i.e.
+ * a published 'direct' job with an `expires_at` in the past. Run daily. Returns
+ * the number expired. The employer can renew to restart the clock.
+ */
+export async function expireOverdueDirectJobs(): Promise<number> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .update({ status: "expired" })
+    .eq("status", "published")
+    .eq("source", "direct")
+    .not("expires_at", "is", null)
+    .lt("expires_at", new Date().toISOString())
     .select("id");
   if (error) throw error;
   return data?.length ?? 0;
