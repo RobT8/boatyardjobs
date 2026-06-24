@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Apply `hover:` styles whenever the pointer is actually over an element.
+   Tailwind v4 defaults to `@media (hover: hover)`, which silently drops all
+   hover styles on touch-capable devices (touchscreen laptops, 2-in-1s) whose
+   primary pointer is reported as coarse — even when a mouse is in use. That
+   made the nav dropdown items never highlight on hover. */
+@custom-variant hover (&:hover);
+
 @theme {
   --color-navy-50: #f0f5fa;
   --color-navy-100: #dae6f2;
