@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import AlertSignupForm from "@/components/AlertSignupForm";
 import SponsorSlot from "@/components/SponsorSlot";
 import BackToJobs from "@/components/BackToJobs";
+import ShareJob from "@/components/ShareJob";
 import { descriptionParagraphs, formatSalary, getJobBySlug, type Job } from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
@@ -132,12 +133,15 @@ export default async function JobDetailPage({ params }: Props) {
       </div>
 
       <div className="mt-8">
-        <a
-          href={`/api/jobs/${job.id}/apply`}
-          className="inline-block rounded-md bg-brass-400 px-8 py-3 font-semibold text-navy-900 shadow hover:bg-brass-500"
-        >
-          Apply for this job →
-        </a>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href={`/api/jobs/${job.id}/apply`}
+            className="inline-block rounded-md bg-brass-400 px-8 py-3 font-semibold text-navy-900 shadow hover:bg-brass-500"
+          >
+            Apply for this job →
+          </a>
+          <ShareJob title={job.title} company={job.company} />
+        </div>
         {job.source !== "direct" && (
           <p className="mt-2 text-xs text-slate-400">
             You&apos;ll be taken to the employer&apos;s original listing to apply.
