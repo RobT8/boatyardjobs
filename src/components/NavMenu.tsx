@@ -87,7 +87,7 @@ export default function NavMenu({
                 key={item[1]}
                 href={item[1]}
                 onClick={() => setOpen(false)}
-                className="block px-4 py-2 text-sm text-navy-800 transition-colors hover:bg-navy-100 hover:text-navy-900 focus:bg-navy-100 focus:outline-none"
+                className="block px-4 py-2 text-sm text-navy-800 transition-colors hover:bg-navy-700 hover:text-white focus:bg-navy-700 focus:text-white focus:outline-none"
               >
                 {item[0]}
               </Link>
@@ -97,7 +97,7 @@ export default function NavMenu({
               <form key={item.action} action={item.action} method="post">
                 <button
                   type="submit"
-                  className="block w-full px-4 py-2 text-left text-sm text-navy-800 transition-colors hover:bg-navy-100 hover:text-navy-900 focus:bg-navy-100 focus:outline-none"
+                  className="block w-full px-4 py-2 text-left text-sm text-navy-800 transition-colors hover:bg-navy-700 hover:text-white focus:bg-navy-700 focus:text-white focus:outline-none"
                 >
                   {item.label}
                 </button>
