@@ -48,14 +48,29 @@ export async function createAlert(
   return { token: data.token as string, alreadyConfirmed: false };
 }
 
+/**
+ * Confirm the subscription for `token` — and, so a multi-role signup needs only
+ * a single click, every other still-unconfirmed alert for the same email. Each
+ * row keeps its own token, so per-alert unsubscribe links in digests are
+ * unaffected.
+ */
 export async function confirmAlert(token: string): Promise<boolean> {
-  const { data, error } = await getDb()
+  const db = getDb();
+  const { data: row, error: lookupError } = await db
+    .from("alerts")
+    .select("email")
+    .eq("token", token)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (!row) return false;
+
+  const { error } = await db
     .from("alerts")
     .update({ confirmed: 1 })
-    .eq("token", token)
-    .select("id");
+    .eq("email", row.email as string)
+    .eq("confirmed", 0);
   if (error) throw error;
-  return (data?.length ?? 0) > 0;
+  return true;
 }
 
 export async function unsubscribeAlert(token: string): Promise<boolean> {
