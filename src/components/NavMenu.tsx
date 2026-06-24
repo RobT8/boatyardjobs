@@ -73,7 +73,9 @@ export default function NavMenu({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex items-center gap-1 hover:text-brass-400"
+        className={`flex items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-navy-700 hover:text-brass-400 ${
+          open ? "bg-navy-700 text-brass-400" : ""
+        }`}
       >
         {label}
         <span className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
