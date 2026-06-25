@@ -40,3 +40,11 @@ jobs:
           ALERTS_FROM_EMAIL: ${{ secrets.ALERTS_FROM_EMAIL }}
           SITE_URL: ${{ secrets.SITE_URL }}
         run: npm run warn-expiring
+      - name: Warn advertisers of expiring adverts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERTS_FROM_EMAIL: ${{ secrets.ALERTS_FROM_EMAIL }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: npm run warn-expiring-ads

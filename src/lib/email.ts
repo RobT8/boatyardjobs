@@ -155,6 +155,36 @@ export function jobExpiringHtml(opts: {
     </p>`);
 }
 
+/** Heads-up to an advertiser that their fixed-term advert is about to end, with one-click renew. */
+export function adExpiringHtml(opts: {
+  channels: string;
+  daysLeft: number;
+  expiresOn: string;
+  renewUrl: string;
+  dashboardUrl: string;
+}): string {
+  const when =
+    opts.daysLeft <= 0
+      ? "today"
+      : opts.daysLeft === 1
+      ? "tomorrow"
+      : `in ${opts.daysLeft} days`;
+  return wrap(`
+    <h1 style="font-size:18px;margin:0 0 12px">Your advert ends ${when}</h1>
+    <p style="margin:0 0 16px;color:#334155">
+      Your BoatyardJobs advert (<strong>${opts.channels}</strong>) finishes on
+      ${opts.expiresOn}. Renew now to keep your banner running without a gap.
+    </p>
+    <p style="margin:0 0 16px">
+      <a href="${opts.renewUrl}" style="background:#c79a3b;color:#1a1407;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:6px;display:inline-block">
+        Renew my advert
+      </a>
+    </p>
+    <p style="margin:0;font-size:12px;color:#94a3b8">
+      Or manage it from your <a href="${opts.dashboardUrl}" style="color:#94a3b8">dashboard</a>.
+    </p>`);
+}
+
 /** Sponsor banner block for the digest email. */
 export function sponsorBlockHtml(imageUrl: string, clickUrl: string): string {
   return `

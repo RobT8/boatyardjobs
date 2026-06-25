@@ -12,7 +12,13 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ updated?: string; error?: string; billing?: string }>;
+  searchParams: Promise<{
+    updated?: string;
+    error?: string;
+    billing?: string;
+    renewed?: string;
+    renew_canceled?: string;
+  }>;
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -107,6 +113,19 @@ function AdRow({ row }: { row: AdvertiserAd }) {
         </div>
       </div>
 
+      {/* Fixed-term ads can be renewed for another term; recurring ones renew
+          through Stripe automatically (managed via "Manage billing"). */}
+      {ad.period_type === "fixed" && (ad.status === "active" || ad.status === "expired") && (
+        <form action={`/api/ads/${ad.id}/renew`} method="post" className="mt-4">
+          <button
+            type="submit"
+            className="rounded-md border border-brass-400 px-3 py-1.5 text-sm font-semibold text-navy-800 transition-colors hover:bg-brass-400 hover:text-navy-900"
+          >
+            {ad.status === "expired" ? "Renew advert" : `Renew for ${ad.months} more month${ad.months === 1 ? "" : "s"}`}
+          </button>
+        </form>
+      )}
+
       <details className="mt-4">
         <summary className="cursor-pointer text-sm font-medium text-navy-600">Change link</summary>
         <form action="/api/ads/link" method="post" className="mt-3 space-y-2">
@@ -171,7 +190,7 @@ function AdRow({ row }: { row: AdvertiserAd }) {
 }
 
 export default async function AdvertiserDashboardPage({ searchParams }: Props) {
-  const { updated, error, billing } = await searchParams;
+  const { updated, error, billing, renewed, renew_canceled } = await searchParams;
   const advertiser = await getSessionAdvertiser();
   if (!advertiser) redirect("/advertise/login");
 
@@ -200,6 +219,16 @@ export default async function AdvertiserDashboardPage({ searchParams }: Props) {
         </div>
       </div>
 
+      {renewed && (
+        <p className="mt-4 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          Your advert has been renewed — thank you! It&apos;ll keep running without a gap.
+        </p>
+      )}
+      {renew_canceled && (
+        <p className="mt-4 rounded-md bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700">
+          Renewal canceled — no payment was taken. You can renew any time below.
+        </p>
+      )}
       {updated && (
         <p className="mt-4 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
           New banner uploaded — it&apos;s in review and will appear once approved.

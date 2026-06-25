@@ -277,6 +277,107 @@ export async function recordAdEvent(adId: number, kind: "impression" | "click"):
   if (error) throw error;
 }
 
+/** ISO timestamp `months` calendar-months after `fromIso`. */
+function addMonthsIso(fromIso: string, months: number): string {
+  const d = new Date(fromIso);
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString();
+}
+
+/**
+ * Extend a fixed-term advert by its term, re-activate it if it had lapsed, and
+ * clear the "warned" flag. Idempotent per Stripe checkout session, so a retried
+ * webhook never double-extends. Remaining days on a still-live ad are preserved.
+ * Recurring ads aren't handled here — Stripe renews those automatically.
+ */
+export async function renewFixedAd(adId: number, sessionId: string): Promise<boolean> {
+  const db = getDb();
+  const { data: ad, error } = await db
+    .from("ads")
+    .select("expires_at, period_type, months, stripe_session_id")
+    .eq("id", adId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!ad || ad.period_type !== "fixed") return false;
+  if (ad.stripe_session_id === sessionId) return false; // already applied
+
+  const now = new Date();
+  const currentEnd = ad.expires_at ? new Date(ad.expires_at as string) : null;
+  const base = currentEnd && currentEnd > now ? currentEnd.toISOString() : now.toISOString();
+
+  const { data, error: updErr } = await db
+    .from("ads")
+    .update({
+      status: "active",
+      expires_at: addMonthsIso(base, (ad.months as number) ?? 1),
+      expiry_warned_at: null,
+      stripe_session_id: sessionId,
+    })
+    .eq("id", adId)
+    .neq("stripe_session_id", sessionId)
+    .select("id");
+  if (updErr) throw updErr;
+  return (data?.length ?? 0) > 0;
+}
+
+/** Flip lapsed fixed-term ads to 'expired' so the dashboard reflects reality. */
+export async function expireOverdueFixedAds(): Promise<number> {
+  const { data, error } = await getDb()
+    .from("ads")
+    .update({ status: "expired" })
+    .eq("status", "active")
+    .eq("period_type", "fixed")
+    .not("expires_at", "is", null)
+    .lt("expires_at", new Date().toISOString())
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
+/** A soon-to-expire fixed-term advert plus the advertiser to warn. */
+export interface ExpiringAd {
+  id: number;
+  channels: ChannelKey[];
+  expires_at: string;
+  months: number | null;
+  advertiser: { id: number; email: string; login_token: string } | null;
+}
+
+/**
+ * Active fixed-term ads whose run ends within `days` and that haven't been
+ * warned yet — the input to the daily advertiser expiry-warning email.
+ */
+export async function adsExpiringWithin(days: number): Promise<ExpiringAd[]> {
+  const now = new Date();
+  const until = new Date(now);
+  until.setDate(until.getDate() + days);
+  const { data, error } = await getDb()
+    .from("ads")
+    .select(
+      "id, channels, expires_at, months, advertiser:advertisers!ads_advertiser_id_fkey(id, email, login_token)"
+    )
+    .eq("status", "active")
+    .eq("period_type", "fixed")
+    .is("expiry_warned_at", null)
+    .not("expires_at", "is", null)
+    .gte("expires_at", now.toISOString())
+    .lte("expires_at", until.toISOString());
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const adv = (r as { advertiser?: unknown }).advertiser;
+    const advertiser = Array.isArray(adv) ? adv[0] ?? null : adv ?? null;
+    return { ...(r as unknown as ExpiringAd), advertiser };
+  });
+}
+
+export async function markAdExpiryWarned(id: number): Promise<void> {
+  const { error } = await getDb()
+    .from("ads")
+    .update({ expiry_warned_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 // ---------------------------------------------------------------------------
 // Read paths
 // ---------------------------------------------------------------------------
@@ -296,6 +397,12 @@ export async function getCurrentCreative(adId: number): Promise<AdCreative | nul
     .maybeSingle();
   if (error) throw error;
   return (data as AdCreative) ?? null;
+}
+
+export async function getAdvertiserById(id: number): Promise<Advertiser | null> {
+  const { data, error } = await getDb().from("advertisers").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data as Advertiser) ?? null;
 }
 
 export async function getAdvertiserByToken(token: string): Promise<Advertiser | null> {

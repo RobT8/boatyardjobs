@@ -10,6 +10,7 @@
     "aggregate": "tsx --env-file-if-exists=.env.local scripts/aggregate/run.ts",
     "digest": "tsx --env-file-if-exists=.env.local scripts/alerts/send-digest.ts",
     "warn-expiring": "tsx --env-file-if-exists=.env.local scripts/expiry/warn-jobs.ts",
+    "warn-expiring-ads": "tsx --env-file-if-exists=.env.local scripts/expiry/warn-ads.ts",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
     "test": "tsx scripts/aggregate/parse.test.ts"
   },
