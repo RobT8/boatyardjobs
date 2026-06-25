@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
 import { getAdminStats, type Bucket } from "@/lib/admin";
+import { listAlertSubscribers, type AlertFilter } from "@/lib/alerts";
 import { listEmployerLeads } from "@/lib/leads";
 import { listDiscountCodes } from "@/lib/discounts";
 import {
@@ -17,6 +18,17 @@ export const metadata: Metadata = { title: "Admin", robots: { index: false, foll
 export const dynamic = "force-dynamic";
 
 const ROLE_LABEL = Object.fromEntries(ROLE_CATEGORIES.map((r) => [r.slug, r.label]));
+
+/** Human-readable summary of one alert filter, e.g. "Marine Technician · Miami, FL". */
+function filterLabel(f: AlertFilter): string {
+  const role = f.category ? (ROLE_LABEL[f.category] ?? f.category) : "Any role";
+  const place = f.city
+    ? `${f.city}${f.state ? `, ${f.state}` : ""}`
+    : f.state
+      ? (US_STATES[f.state] ?? f.state)
+      : "Anywhere";
+  return `${role} · ${place}`;
+}
 
 function StatCard({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
   return (
@@ -76,8 +88,9 @@ export default async function AdminPage({ searchParams }: Props) {
   if (!(await isAdmin())) redirect("/admin/login");
   const { posted, job_error, discount_added, discount_error, discount_toggled } =
     await searchParams;
-  const [s, leads, pendingAds, activeAds, discounts] = await Promise.all([
+  const [s, subscribers, leads, pendingAds, activeAds, discounts] = await Promise.all([
     getAdminStats(),
+    listAlertSubscribers(),
     listEmployerLeads(),
     listPendingCreatives(),
     listActiveAds(),
@@ -121,6 +134,67 @@ export default async function AdminPage({ searchParams }: Props) {
         <BarList title="By state" items={s.subscribers_by_state} relabel={(c) => US_STATES[c] ?? c} />
         <BarList title="By role" items={s.subscribers_by_category} relabel={(c) => ROLE_LABEL[c] ?? c} />
       </div>
+
+      <details className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-navy-800">
+          See all subscribers ({subscribers.length})
+        </summary>
+        {subscribers.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-400">No subscribers yet.</p>
+        ) : (
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="pb-2">Email</th>
+                <th className="pb-2">Alerts for</th>
+                <th className="pb-2">Status</th>
+                <th className="pb-2 text-right">Joined</th>
+                <th className="pb-2 text-right">Last sent</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subscribers.map((sub) => (
+                <tr key={sub.email} className="border-t border-slate-100 align-top">
+                  <td className="py-1.5 pr-2 font-medium text-navy-800">
+                    <a href={`mailto:${sub.email}`} className="hover:underline">
+                      {sub.email}
+                    </a>
+                  </td>
+                  <td className="py-1.5 pr-2">
+                    <div className="flex flex-wrap gap-1">
+                      {sub.filters.map((f, i) => (
+                        <span
+                          key={i}
+                          className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                        >
+                          {filterLabel(f)}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-1.5 pr-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        sub.confirmed
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {sub.confirmed ? "confirmed" : "pending"}
+                    </span>
+                  </td>
+                  <td className="py-1.5 text-right text-slate-400">
+                    {new Date(sub.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="py-1.5 text-right text-slate-400">
+                    {sub.last_sent_at ? new Date(sub.last_sent_at).toLocaleDateString() : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </details>
 
       {/* Engagement */}
       <h2 className="mt-10 text-lg font-bold text-navy-800">Most-clicked jobs</h2>

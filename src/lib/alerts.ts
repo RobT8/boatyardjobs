@@ -98,6 +98,57 @@ export async function listConfirmedAlerts(): Promise<Alert[]> {
   return (data ?? []) as Alert[];
 }
 
+/** One searched (state/city/category) combination a subscriber asked for. */
+export interface AlertFilter {
+  state: string | null;
+  city: string | null;
+  category: string | null;
+}
+
+/** A subscriber, with every role/location combination they signed up for. */
+export interface AlertSubscriber {
+  email: string;
+  confirmed: boolean;
+  /** Earliest signup across their rows. */
+  created_at: string;
+  /** Most recent digest send across their rows (null if never). */
+  last_sent_at: string | null;
+  filters: AlertFilter[];
+}
+
+/**
+ * All alert subscribers for the admin view, folded to one row per email with
+ * their filter combinations listed. A subscriber counts as confirmed once any
+ * of their rows is confirmed (confirmation is per-email, see confirmAlert).
+ * Newest signups first.
+ */
+export async function listAlertSubscribers(): Promise<AlertSubscriber[]> {
+  const { data, error } = await getDb()
+    .from("alerts")
+    .select("email, state, city, category, confirmed, created_at, last_sent_at")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const byEmail = new Map<string, AlertSubscriber>();
+  for (const r of (data ?? []) as Alert[]) {
+    const sub = byEmail.get(r.email) ?? {
+      email: r.email,
+      confirmed: false,
+      created_at: r.created_at,
+      last_sent_at: null,
+      filters: [],
+    };
+    sub.confirmed = sub.confirmed || r.confirmed === 1;
+    if (r.created_at < sub.created_at) sub.created_at = r.created_at;
+    if (r.last_sent_at && (!sub.last_sent_at || r.last_sent_at > sub.last_sent_at)) {
+      sub.last_sent_at = r.last_sent_at;
+    }
+    sub.filters.push({ state: r.state, city: r.city, category: r.category });
+    byEmail.set(r.email, sub);
+  }
+  return [...byEmail.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
 /** Published jobs matching the alert that are newer than its last send. */
 export async function newJobsForAlert(alert: Alert): Promise<Job[]> {
   const cutoff = alert.last_sent_at ?? alert.created_at;

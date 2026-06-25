@@ -83,6 +83,13 @@
 
 ## Session log (newest first)
 
+### 2026-06-25 — Admin: full subscriber list
+The admin dashboard already showed subscriber *counts* by state/role; added a
+collapsible **"See all subscribers"** table under that section showing each
+subscriber (email, the role/location combos they signed up for as chips,
+confirmed/pending, joined + last-sent dates). New `listAlertSubscribers()` in
+`src/lib/alerts.ts` folds the per-(location × role) rows to one entry per email.
+
 ### 2026-06-25 — Multi state/city job alerts
 Alerts can now target **multiple states and/or cities** (previously one state).
 Each ticked location is an independent OR-subscription (a state and a city in
