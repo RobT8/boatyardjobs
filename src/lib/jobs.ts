@@ -21,6 +21,7 @@ export interface Job {
   status: string;
   posted_at: string;
   expires_at: string | null;
+  employer_id: number | null;
 }
 
 export interface JobFilters {
@@ -549,6 +550,89 @@ export async function expireOverdueDirectJobs(): Promise<number> {
     .select("id");
   if (error) throw error;
   return data?.length ?? 0;
+}
+
+/**
+ * Extend a direct listing's run by another {@link DIRECT_JOB_DAYS}, re-publish
+ * it if it had expired, and clear the "warned" flag so the next expiry warning
+ * can fire. Idempotent per Stripe checkout session: a retried webhook with the
+ * same `sessionId` is a no-op, so the run is never double-extended. Remaining
+ * days on a still-live listing are preserved (we extend from its current end).
+ */
+export async function renewDirectJob(jobId: number, sessionId: string): Promise<boolean> {
+  const db = getDb();
+  const { data: job, error } = await db
+    .from("jobs")
+    .select("expires_at, source, stripe_session_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!job || job.source !== "direct") return false;
+  if (job.stripe_session_id === sessionId) return false; // already applied
+
+  const now = new Date();
+  const currentEnd = job.expires_at ? new Date(job.expires_at as string) : null;
+  const base = currentEnd && currentEnd > now ? currentEnd.toISOString() : now.toISOString();
+
+  const { data, error: updErr } = await db
+    .from("jobs")
+    .update({
+      status: "published",
+      expires_at: addDaysIso(base, DIRECT_JOB_DAYS),
+      expiry_warned_at: null,
+      stripe_session_id: sessionId,
+    })
+    .eq("id", jobId)
+    .neq("stripe_session_id", sessionId)
+    .select("id");
+  if (updErr) throw updErr;
+  return (data?.length ?? 0) > 0;
+}
+
+/** A soon-to-expire direct listing plus the employer to warn (if any). */
+export interface ExpiringJob {
+  id: number;
+  slug: string;
+  title: string;
+  company: string;
+  expires_at: string;
+  employer: { id: number; email: string; login_token: string } | null;
+}
+
+/**
+ * Published direct listings whose run ends within `days` and that haven't been
+ * warned yet — the input to the daily expiry-warning email.
+ */
+export async function jobsExpiringWithin(days: number): Promise<ExpiringJob[]> {
+  const now = new Date();
+  const until = new Date(now);
+  until.setDate(until.getDate() + days);
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select(
+      "id, slug, title, company, expires_at, employer:employers!jobs_employer_id_fkey(id, email, login_token)"
+    )
+    .eq("status", "published")
+    .eq("source", "direct")
+    .is("expiry_warned_at", null)
+    .not("expires_at", "is", null)
+    .gte("expires_at", now.toISOString())
+    .lte("expires_at", until.toISOString());
+  if (error) throw error;
+  // PostgREST types the embedded relation as an array; collapse to one row.
+  return (data ?? []).map((r) => {
+    const emp = (r as { employer?: unknown }).employer;
+    const employer = Array.isArray(emp) ? emp[0] ?? null : emp ?? null;
+    return { ...(r as unknown as ExpiringJob), employer };
+  });
+}
+
+export async function markJobExpiryWarned(id: number): Promise<void> {
+  const { error } = await getDb()
+    .from("jobs")
+    .update({ expiry_warned_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 const SECTION_HEADINGS = [

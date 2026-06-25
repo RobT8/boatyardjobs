@@ -124,6 +124,37 @@ export function employerLoginHtml(dashboardUrl: string): string {
     </p>`);
 }
 
+/** Heads-up to an employer that their listing is about to expire, with a one-click renew. */
+export function jobExpiringHtml(opts: {
+  jobTitle: string;
+  daysLeft: number;
+  expiresOn: string;
+  renewUrl: string;
+  dashboardUrl: string;
+}): string {
+  const when =
+    opts.daysLeft <= 0
+      ? "today"
+      : opts.daysLeft === 1
+      ? "tomorrow"
+      : `in ${opts.daysLeft} days`;
+  return wrap(`
+    <h1 style="font-size:18px;margin:0 0 12px">Your listing expires ${when}</h1>
+    <p style="margin:0 0 16px;color:#334155">
+      <strong>${opts.jobTitle}</strong> will stop showing on BoatyardJobs on
+      ${opts.expiresOn}. Renew now to keep it live for another 30 days and hold
+      onto your views and apply clicks.
+    </p>
+    <p style="margin:0 0 16px">
+      <a href="${opts.renewUrl}" style="background:#c79a3b;color:#1a1407;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:6px;display:inline-block">
+        Renew this listing
+      </a>
+    </p>
+    <p style="margin:0;font-size:12px;color:#94a3b8">
+      Or manage it from your <a href="${opts.dashboardUrl}" style="color:#94a3b8">dashboard</a>.
+    </p>`);
+}
+
 /** Sponsor banner block for the digest email. */
 export function sponsorBlockHtml(imageUrl: string, clickUrl: string): string {
   return `

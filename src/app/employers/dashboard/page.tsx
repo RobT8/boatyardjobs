@@ -29,14 +29,34 @@ const STATUS_LABEL: Record<string, string> = {
   expired: "Expired",
 };
 
-export default async function EmployerDashboardPage() {
+interface Props {
+  searchParams: Promise<{ renewed?: string; renew_canceled?: string }>;
+}
+
+/** Days until an ISO timestamp (negative if past). */
+function daysUntil(iso: string): number {
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+}
+
+export default async function EmployerDashboardPage({ searchParams }: Props) {
   const employer = await getSessionEmployer();
   if (!employer) redirect("/employers/login");
 
+  const { renewed, renew_canceled } = await searchParams;
   const jobs = await listEmployerJobs(employer!.id);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      {renewed && (
+        <p className="mb-6 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          Your listing has been renewed for another 30 days — thank you!
+        </p>
+      )}
+      {renew_canceled && (
+        <p className="mb-6 rounded-md bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700">
+          Renewal canceled — no payment was taken. You can renew any time below.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-navy-800">{employer!.company}</h1>
@@ -102,14 +122,45 @@ export default async function EmployerDashboardPage() {
                 </div>
               </div>
 
-              {job.status === "published" && (
-                <Link
-                  href={`/jobs/${job.slug}`}
-                  className="mt-3 inline-block text-sm text-navy-600 hover:underline"
-                >
-                  View live listing →
-                </Link>
+              {job.status === "published" && job.expires_at && (
+                <p className="mt-3 text-xs text-slate-500">
+                  {daysUntil(job.expires_at) <= 0
+                    ? "Expires today"
+                    : `Expires in ${daysUntil(job.expires_at)} day${
+                        daysUntil(job.expires_at) === 1 ? "" : "s"
+                      }`}
+                  {" · "}
+                  {new Date(job.expires_at).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
               )}
+
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                {job.status === "published" && (
+                  <Link
+                    href={`/jobs/${job.slug}`}
+                    className="text-sm text-navy-600 hover:underline"
+                  >
+                    View live listing →
+                  </Link>
+                )}
+                {/* Renew is offered for live listings (extends the run) and for
+                    expired ones (re-publishes them). Posts to the renew route,
+                    which sends the employer to Stripe Checkout. */}
+                {(job.status === "published" || job.status === "expired") && (
+                  <form action={`/api/jobs/${job.id}/renew`} method="post">
+                    <button
+                      type="submit"
+                      className="rounded-md border border-brass-400 px-3 py-1.5 text-sm font-semibold text-navy-800 transition-colors hover:bg-brass-400 hover:text-navy-900"
+                    >
+                      {job.status === "expired" ? "Renew listing" : "Renew for 30 days"}
+                    </button>
+                  </form>
+                )}
+              </div>
             </div>
           ))
         )}

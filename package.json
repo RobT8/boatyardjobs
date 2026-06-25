@@ -9,6 +9,7 @@
     "lint": "eslint",
     "aggregate": "tsx --env-file-if-exists=.env.local scripts/aggregate/run.ts",
     "digest": "tsx --env-file-if-exists=.env.local scripts/alerts/send-digest.ts",
+    "warn-expiring": "tsx --env-file-if-exists=.env.local scripts/expiry/warn-jobs.ts",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
     "test": "tsx scripts/aggregate/parse.test.ts"
   },

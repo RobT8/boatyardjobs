@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
-import { publishPaidJob } from "@/lib/jobs";
+import { publishPaidJob, renewDirectJob } from "@/lib/jobs";
 import {
   getAdById,
   setAdStatusBySubscription,
@@ -79,6 +79,9 @@ export async function POST(req: Request) {
         if (session.metadata?.kind === "ad") {
           const adId = Number(session.metadata.adId);
           if (adId) await activateAd(adId, session);
+        } else if (session.metadata?.kind === "renew") {
+          const jobId = Number(session.metadata.jobId);
+          if (jobId) await renewDirectJob(jobId, session.id);
         } else {
           const jobId = Number(session.metadata?.jobId);
           if (jobId) await publishPaidJob(jobId);
