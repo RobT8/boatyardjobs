@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import AlertSignupForm from "@/components/AlertSignupForm";
+import { countByCity, countByState } from "@/lib/jobs";
+import { US_STATES } from "@/lib/taxonomy";
 
 export const metadata: Metadata = {
   title: "Job Alerts",
@@ -21,12 +23,17 @@ interface Props {
 
 export default async function AlertsPage({ searchParams }: Props) {
   const { subscribed, confirmed, unsubscribed, already, error } = await searchParams;
+  const [stateCounts, cityCounts] = await Promise.all([countByState(), countByCity()]);
+  const stateOptions = stateCounts
+    .map((s) => ({ code: s.state, name: US_STATES[s.state] ?? s.state }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const cityOptions = cityCounts.map((c) => ({ city: c.city, state: c.state }));
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <h1 className="text-3xl font-bold text-navy-800">Job Alerts</h1>
       <p className="mt-3 text-slate-600">
-        Tell us your trade and your state, and we&apos;ll email you when matching jobs are posted.
-        Free for candidates, always — no account needed.
+        Tell us your trades and the states or cities you care about, and we&apos;ll email you when
+        matching jobs are posted. Free for candidates, always — no account needed.
       </p>
 
       {subscribed && (
@@ -58,7 +65,7 @@ export default async function AlertsPage({ searchParams }: Props) {
       )}
 
       <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50 p-6">
-        <AlertSignupForm />
+        <AlertSignupForm states={stateOptions} cities={cityOptions} />
       </div>
     </div>
   );

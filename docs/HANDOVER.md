@@ -83,6 +83,24 @@
 
 ## Session log (newest first)
 
+### 2026-06-25 — Multi state/city job alerts
+Alerts can now target **multiple states and/or cities** (previously one state).
+Each ticked location is an independent OR-subscription (a state and a city in
+another state can be watched at once), crossed with each ticked role — so the
+signup fans out into one alert row per (location × role), capped at 200.
+
+- Migration `add_alerts_city`: new nullable `alerts.city` column (paired with
+  `state` so a city name is disambiguated across states). Not in repo.
+- `src/lib/alerts.ts`: `createAlert`/`findAlert` take a `city`; `newJobsForAlert`
+  filters on it (`eq`, matching the canonical spelling like the search filter).
+- `src/app/api/alerts/route.ts`: parses repeated `state` codes + `city` values
+  (encoded `ST|City`), builds the location list, creates the cross-product.
+- Full signup form now uses the `MultiSelect` dropdowns (roles/states/cities).
+  Extracted `MultiSelect` out of `SearchForm` into `src/components/MultiSelect.tsx`
+  (shared); new `src/components/AlertFullForm.tsx` (client). Compact variant on
+  job/role/city pages is unchanged. `/alerts` + home page now feed the pickers
+  with live `countByState`/`countByCity` inventory.
+
 ### 2026-06-25 — Job-board feature batch + nav fixes
 Owner gave a 9-item list ("start with the easiest"); built 7, deferred #4/#5.
 
