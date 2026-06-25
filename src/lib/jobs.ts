@@ -371,6 +371,21 @@ function monthsAgoIso(months: number): string {
   return d.toISOString();
 }
 
+/**
+ * The date a listing is valid through, for schema.org `validThrough` (Google
+ * for Jobs strongly prefers a dated posting). Direct listings carry a real
+ * `expires_at`; feed listings store none but are hard-retired at the age cap,
+ * so we surface that upper bound (`posted_at + FEED_MAX_AGE_MONTHS`). If it
+ * vanishes upstream sooner the aggregation cron expires the row and the page
+ * 404s, so Google drops it on the next crawl regardless.
+ */
+export function jobValidThroughIso(job: Pick<Job, "expires_at" | "posted_at">): string {
+  if (job.expires_at) return job.expires_at;
+  const d = new Date(job.posted_at);
+  d.setMonth(d.getMonth() + FEED_MAX_AGE_MONTHS);
+  return d.toISOString();
+}
+
 export type UpsertResult = "created" | "updated" | "unchanged";
 
 /** True if a published job with the same title/company/state already exists —
