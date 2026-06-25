@@ -83,6 +83,34 @@
 
 ## Session log (newest first)
 
+### 2026-06-25 — Listing order + Google Indexing API
+- **Fixed listing order: featured → direct/paid → scraped.** New generated
+  column `jobs.listing_rank` (0 featured · 1 direct · 2 feed; migration
+  `add_jobs_listing_rank`, plus a partial index on `(listing_rank, posted_at)`).
+  `listJobs` orders by it first, then the within-tier sort, so every board page
+  reads in that order regardless of the chosen sort. (Listing pages already pull
+  featured into a separate top section via `getFeaturedJobs` + `excludeFeatured`,
+  so in practice the main list now shows direct-paid before scraped.)
+- **Google Indexing API** (`src/lib/google-indexing.ts`) — pings Google the
+  moment a JobPosting page goes live / changes / comes down, instead of waiting
+  for an organic crawl. JWT (RS256) signed with Node `crypto`, no new deps;
+  access-token cached per run. Env-gated — fully no-op unless
+  `GOOGLE_INDEXING_CLIENT_EMAIL` + `GOOGLE_INDEXING_PRIVATE_KEY` are set (and the
+  service account is an **Owner** of the Search Console property). Wired in:
+  - aggregation cron (`scripts/aggregate/run.ts`): created/updated feed slugs →
+    `URL_UPDATED`, expired slugs → `URL_DELETED`, batched at end, best-effort,
+    stops early on quota (default ~200/day). Required plumbing slugs out of
+    `upsertSourcedJob` (now returns `{result, slug}`) and the three `expire*`
+    fns (now return `string[]` of slugs); `publishPaidJob`/`renewDirectJob` now
+    return the slug.
+  - Stripe webhook (new direct job, job renew), admin "post for a client",
+    post-job 100%-off path → `URL_UPDATED`.
+  - `aggregate.yml` passes the new secrets (`SITE_URL`,
+    `GOOGLE_INDEXING_CLIENT_EMAIL`, `GOOGLE_INDEXING_PRIVATE_KEY`).
+  - **TODO to go live:** create the GCP service account + enable Indexing API,
+    add it as a Search Console owner, set the env vars (Vercel + the GH Action
+    secrets). Until then it's dark.
+
 ### 2026-06-25 — Google for Jobs: validThrough + JSON-LD hardening
 Audited the `JobPosting` structured data (`src/app/jobs/[slug]/page.tsx`) against
 Google's spec — all required fields present, would pass Rich Results. Two fixes:

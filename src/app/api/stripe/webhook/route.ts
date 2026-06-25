@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { publishPaidJob, renewDirectJob } from "@/lib/jobs";
+import { notifyJobLive } from "@/lib/google-indexing";
 import { incrementDiscountUse } from "@/lib/discounts";
 import {
   getAdById,
@@ -86,10 +87,16 @@ export async function POST(req: Request) {
           if (adId) await renewFixedAd(adId, session.id);
         } else if (session.metadata?.kind === "renew") {
           const jobId = Number(session.metadata.jobId);
-          if (jobId) await renewDirectJob(jobId, session.id);
+          if (jobId) {
+            const slug = await renewDirectJob(jobId, session.id);
+            if (slug) await notifyJobLive(slug);
+          }
         } else {
           const jobId = Number(session.metadata?.jobId);
-          if (jobId) await publishPaidJob(jobId);
+          if (jobId) {
+            const slug = await publishPaidJob(jobId);
+            if (slug) await notifyJobLive(slug);
+          }
         }
         // Record a discount-code use once the payment actually clears.
         if (session.metadata?.discountId) {

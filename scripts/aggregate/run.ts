@@ -5,6 +5,7 @@ import {
   expireOverdueDirectJobs,
   FEED_MAX_AGE_MONTHS,
 } from "../../src/lib/jobs";
+import { jobIndexUrl, notifyIndexing } from "../../src/lib/google-indexing";
 import type { SourceAdapter } from "./types";
 import { adzunaSource } from "./sources/adzuna";
 import { createAdpSource } from "./sources/adp";
@@ -88,6 +89,10 @@ async function main() {
   let created = 0;
   let updated = 0;
   let expired = 0;
+  // Slugs whose pages changed state this run, for the Google Indexing API:
+  // live/changed listings get URL_UPDATED, retired ones get URL_DELETED.
+  const liveSlugs: string[] = [];
+  const goneSlugs: string[] = [];
 
   for (const adapter of ADAPTERS) {
     console.log(`[${adapter.id}] fetching…`);
@@ -103,19 +108,21 @@ async function main() {
       let srcCreated = 0;
       let srcUpdated = 0;
       for (const job of jobs) {
-        const result = await upsertSourcedJob({ ...job, source: adapter.id });
+        const { result, slug } = await upsertSourcedJob({ ...job, source: adapter.id });
         if (job.source_url) seenUrls.push(job.source_url);
         if (result === "created") srcCreated++;
         else if (result === "updated") srcUpdated++;
+        if (slug && (result === "created" || result === "updated")) liveSlugs.push(slug);
       }
 
-      const srcExpired = await expireMissingFromSource(adapter.id, seenUrls);
+      const srcExpiredSlugs = await expireMissingFromSource(adapter.id, seenUrls);
+      goneSlugs.push(...srcExpiredSlugs);
       created += srcCreated;
       updated += srcUpdated;
-      expired += srcExpired;
+      expired += srcExpiredSlugs.length;
       console.log(
         `[${adapter.id}] done — ${jobs.length} fetched ` +
-          `(${srcCreated} new, ${srcUpdated} updated, ${srcExpired} expired)`
+          `(${srcCreated} new, ${srcUpdated} updated, ${srcExpiredSlugs.length} expired)`
       );
     } catch (err) {
       console.error(`[${adapter.id}] FAILED, skipping (listings left untouched):`, err);
@@ -126,19 +133,29 @@ async function main() {
   // Hard age cap: retire feed listings older than the cap even if they're still
   // upstream. Runs once, after all sources, so a source that failed this pass
   // still has its aged rows swept. Direct (site-bought) ads are exempt.
-  const aged = await expireAgedFeedJobs();
-  expired += aged;
+  const agedSlugs = await expireAgedFeedJobs();
+  goneSlugs.push(...agedSlugs);
+  expired += agedSlugs.length;
 
   // Retire site-bought listings whose 30-day run has elapsed. Independent of the
   // feed sources above, so it runs every day regardless of which adapters ran.
-  const overdueDirect = await expireOverdueDirectJobs();
-  expired += overdueDirect;
+  const overdueSlugs = await expireOverdueDirectJobs();
+  goneSlugs.push(...overdueSlugs);
+  expired += overdueSlugs.length;
 
   console.log(
     `Aggregation complete: ${created} new, ${updated} updated, ${expired} expired ` +
-      `(${aged} past the ${FEED_MAX_AGE_MONTHS}-month feed age cap, ` +
-      `${overdueDirect} direct listings past their run).`
+      `(${agedSlugs.length} past the ${FEED_MAX_AGE_MONTHS}-month feed age cap, ` +
+      `${overdueSlugs.length} direct listings past their run).`
   );
+
+  // Notify Google for Jobs of the deltas (no-op unless the Indexing API is
+  // configured). Best-effort: failures here never fail the aggregation run.
+  const liveOk = await notifyIndexing(liveSlugs.map(jobIndexUrl), "URL_UPDATED");
+  const goneOk = await notifyIndexing(goneSlugs.map(jobIndexUrl), "URL_DELETED");
+  if (liveOk || goneOk) {
+    console.log(`Google Indexing: ${liveOk} updated, ${goneOk} removed notified.`);
+  }
 }
 
 main().catch((err) => {
