@@ -5,7 +5,13 @@ import AlertSignupForm from "@/components/AlertSignupForm";
 import SponsorSlot from "@/components/SponsorSlot";
 import BackToJobs from "@/components/BackToJobs";
 import ShareJob from "@/components/ShareJob";
-import { descriptionParagraphs, formatSalary, getJobBySlug, type Job } from "@/lib/jobs";
+import {
+  descriptionParagraphs,
+  formatSalary,
+  getJobBySlug,
+  jobValidThroughIso,
+  type Job,
+} from "@/lib/jobs";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +61,9 @@ function jobPostingJsonLd(job: Job) {
       },
     },
   };
-  if (job.expires_at) ld.validThrough = job.expires_at.slice(0, 10);
+  // Always dated: real expiry for direct listings, the age-cap bound for feed
+  // listings. Google for Jobs strongly prefers a posting with validThrough.
+  ld.validThrough = jobValidThroughIso(job).slice(0, 10);
   if (job.salary_min != null || job.salary_max != null) {
     ld.baseSalary = {
       "@type": "MonetaryAmount",
@@ -71,6 +79,18 @@ function jobPostingJsonLd(job: Job) {
   return ld;
 }
 
+/**
+ * Serialize JSON-LD for inline injection. JSON.stringify leaves `<` intact, so a
+ * field containing `</script>` (or `<!--`) could break out of the script tag —
+ * an XSS/markup-breakage vector. Escaping `<`, `>` and `&` to unicode escapes
+ * keeps the JSON valid while making breakout impossible.
+ */
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/[<>&]/g, (c) =>
+    ({ "<": "\\u003c", ">": "\\u003e", "&": "\\u0026" })[c]!
+  );
+}
+
 export default async function JobDetailPage({ params }: Props) {
   const { slug } = await params;
   const job = await getJobBySlug(slug);
@@ -84,7 +104,7 @@ export default async function JobDetailPage({ params }: Props) {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingJsonLd(job)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jobPostingJsonLd(job)) }}
       />
       <div className="mb-4">
         <BackToJobs />

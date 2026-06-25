@@ -83,6 +83,21 @@
 
 ## Session log (newest first)
 
+### 2026-06-25 — Google for Jobs: validThrough + JSON-LD hardening
+Audited the `JobPosting` structured data (`src/app/jobs/[slug]/page.tsx`) against
+Google's spec — all required fields present, would pass Rich Results. Two fixes:
+- **`validThrough` now always emitted.** Previously only direct listings (which
+  carry `expires_at`) were dated; all 605 live jobs are scraped feed rows with
+  null expiry, so none had it — a Google quality gap. New `jobValidThroughIso()`
+  in `src/lib/jobs.ts` falls back to the age-cap bound (`posted_at +
+  FEED_MAX_AGE_MONTHS`) for feed jobs.
+- **JSON-LD breakout hardened.** `JSON.stringify` left `<` intact, so a scraped
+  description containing `</script>` could break out of the tag (XSS/markup
+  risk). New `safeJsonLd()` escapes `<`/`>`/`&`. (Salary pages emit `Occupation`
+  schema from static taxonomy + numeric inputs, so they weren't at risk.)
+- Couldn't run Google's hosted Rich Results Test — the network policy blocks the
+  live domain from the build env (same constraint as the live-purchase check).
+
 ### 2026-06-25 — Admin: full subscriber list
 The admin dashboard already showed subscriber *counts* by state/role; added a
 collapsible **"See all subscribers"** table under that section showing each
