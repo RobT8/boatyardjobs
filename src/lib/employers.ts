@@ -26,6 +26,23 @@ export async function createEmployerWithPassword(
   return data as Employer;
 }
 
+/**
+ * Find an employer by email or create a passwordless one (e.g. when an admin
+ * posts a job on a client's behalf). The client can later claim the account via
+ * the magic-link login.
+ */
+export async function upsertEmployer(company: string, email: string): Promise<Employer> {
+  const existing = await getEmployerByEmail(email);
+  if (existing) return existing;
+  const { data, error } = await getDb()
+    .from("employers")
+    .insert({ company, email })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as Employer;
+}
+
 export async function getEmployerByEmail(email: string): Promise<Employer | null> {
   const { data, error } = await getDb()
     .from("employers")

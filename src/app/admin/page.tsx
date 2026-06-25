@@ -61,8 +61,13 @@ function BarList({
   );
 }
 
-export default async function AdminPage() {
+interface Props {
+  searchParams: Promise<{ posted?: string; job_error?: string }>;
+}
+
+export default async function AdminPage({ searchParams }: Props) {
   if (!(await isAdmin())) redirect("/admin/login");
+  const { posted, job_error } = await searchParams;
   const [s, leads, pendingAds, activeAds] = await Promise.all([
     getAdminStats(),
     listEmployerLeads(),
@@ -285,6 +290,61 @@ export default async function AdminPage() {
 
       {/* Jobs */}
       <h2 className="mt-10 text-lg font-bold text-navy-800">Jobs</h2>
+
+      {posted && (
+        <p className="mt-3 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          Job posted — it&apos;s live now with a 30-day run.
+        </p>
+      )}
+      {job_error && (
+        <p className="mt-3 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          Couldn&apos;t post that job — please check the fields (description needs 30+ characters) and try again.
+        </p>
+      )}
+
+      <details className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-navy-800">
+          Post a job for a client
+        </summary>
+        <p className="mt-2 text-xs text-slate-500">
+          Posts a live, direct listing on a client&apos;s behalf (no payment). Add a client email to
+          tie it to an employer account they can claim and renew later.
+        </p>
+        <form action="/api/admin/jobs" method="post" className="mt-4 grid gap-3 sm:grid-cols-2">
+          <input name="title" required placeholder="Job title" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <input name="company" required placeholder="Company" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <input name="city" required placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <select name="state" required defaultValue="" className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <option value="" disabled>State…</option>
+            {Object.entries(US_STATES).map(([code, name]) => (
+              <option key={code} value={code}>{name}</option>
+            ))}
+          </select>
+          <select name="category" required defaultValue="" className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <option value="" disabled>Role…</option>
+            {ROLE_CATEGORIES.map((r) => (
+              <option key={r.slug} value={r.slug}>{r.label}</option>
+            ))}
+          </select>
+          <input name="apply_email" type="email" required placeholder="Apply-to email" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <input name="salary_min" type="number" inputMode="numeric" placeholder="Salary min (optional)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <input name="salary_max" type="number" inputMode="numeric" placeholder="Salary max (optional)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <select name="salary_unit" defaultValue="YEAR" className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <option value="YEAR">per year</option>
+            <option value="HOUR">per hour</option>
+          </select>
+          <input name="client_email" type="email" placeholder="Client account email (optional)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <textarea name="description" required rows={5} placeholder="Job description (30+ characters)" className="rounded-md border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
+          <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-2">
+            <input type="checkbox" name="tier" value="featured" className="h-4 w-4 rounded border-slate-300" />
+            Feature this listing (top of the board)
+          </label>
+          <button type="submit" className="justify-self-start rounded-md bg-brass-400 px-5 py-2 text-sm font-semibold text-navy-900 hover:bg-brass-500 sm:col-span-2">
+            Post job for client
+          </button>
+        </form>
+      </details>
+
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <BarList title="By source" items={s.jobs_by_source} />
         <BarList title="By role" items={s.jobs_by_category} relabel={(c) => ROLE_LABEL[c] ?? c} />
