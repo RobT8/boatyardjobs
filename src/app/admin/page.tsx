@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
 import { getAdminStats, type Bucket } from "@/lib/admin";
 import { listEmployerLeads } from "@/lib/leads";
+import { listDiscountCodes } from "@/lib/discounts";
 import {
   getChannel,
   listActiveAds,
@@ -62,17 +63,25 @@ function BarList({
 }
 
 interface Props {
-  searchParams: Promise<{ posted?: string; job_error?: string }>;
+  searchParams: Promise<{
+    posted?: string;
+    job_error?: string;
+    discount_added?: string;
+    discount_error?: string;
+    discount_toggled?: string;
+  }>;
 }
 
 export default async function AdminPage({ searchParams }: Props) {
   if (!(await isAdmin())) redirect("/admin/login");
-  const { posted, job_error } = await searchParams;
-  const [s, leads, pendingAds, activeAds] = await Promise.all([
+  const { posted, job_error, discount_added, discount_error, discount_toggled } =
+    await searchParams;
+  const [s, leads, pendingAds, activeAds, discounts] = await Promise.all([
     getAdminStats(),
     listEmployerLeads(),
     listPendingCreatives(),
     listActiveAds(),
+    listDiscountCodes(),
   ]);
   const mrr = mrrCents(activeAds);
 
@@ -281,6 +290,98 @@ export default async function AdminPage({ searchParams }: Props) {
                   <td className="py-1.5 pr-2 text-slate-500">{ad.status}</td>
                   <td className="py-1.5 text-right text-navy-800">{stats.impressions}</td>
                   <td className="py-1.5 text-right text-navy-800">{stats.clicks}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Discount codes */}
+      <h2 className="mt-10 text-lg font-bold text-navy-800">Discount codes</h2>
+
+      {discount_added && (
+        <p className="mt-3 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          Discount code created.
+        </p>
+      )}
+      {discount_toggled && (
+        <p className="mt-3 rounded-md bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700">
+          Discount code updated.
+        </p>
+      )}
+      {discount_error && (
+        <p className="mt-3 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          Couldn&apos;t save that code — check it&apos;s unique, 2–40 letters/numbers, with a percentage 1–100.
+        </p>
+      )}
+
+      <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
+        <form action="/api/admin/discounts" method="post" className="grid gap-3 sm:grid-cols-6">
+          <input name="code" required placeholder="CODE" className="rounded-md border border-slate-300 px-3 py-2 text-sm uppercase sm:col-span-2" />
+          <input name="percent_off" type="number" min="1" max="100" required placeholder="% off" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <select name="applies_to" defaultValue="both" className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <option value="both">Jobs + ads</option>
+            <option value="jobs">Jobs only</option>
+            <option value="ads">Ads only</option>
+          </select>
+          <input name="max_uses" type="number" min="1" placeholder="Max uses (∞)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <button type="submit" className="rounded-md bg-brass-400 px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-brass-500">
+            Add code
+          </button>
+          <label className="flex items-center gap-2 text-xs text-slate-500 sm:col-span-3">
+            Valid from
+            <input name="valid_from" type="date" className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+          </label>
+          <label className="flex items-center gap-2 text-xs text-slate-500 sm:col-span-3">
+            Valid until
+            <input name="valid_until" type="date" className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+          </label>
+        </form>
+
+        {discounts.length > 0 && (
+          <table className="mt-4 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="pb-2">Code</th>
+                <th className="pb-2">Off</th>
+                <th className="pb-2">Applies</th>
+                <th className="pb-2">Window</th>
+                <th className="pb-2 text-right">Used</th>
+                <th className="pb-2 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {discounts.map((d) => (
+                <tr key={d.id} className="border-t border-slate-100">
+                  <td className="py-1.5 pr-2 font-mono font-medium text-navy-800">{d.code}</td>
+                  <td className="py-1.5 pr-2 text-slate-600">{d.percent_off}%</td>
+                  <td className="py-1.5 pr-2 text-slate-500">{d.applies_to}</td>
+                  <td className="py-1.5 pr-2 text-slate-500">
+                    {d.valid_from ? new Date(d.valid_from).toLocaleDateString() : "—"}
+                    {" → "}
+                    {d.valid_until ? new Date(d.valid_until).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="py-1.5 text-right text-slate-600">
+                    {d.used_count}
+                    {d.max_uses != null ? ` / ${d.max_uses}` : ""}
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <form action="/api/admin/discounts" method="post" className="inline">
+                      <input type="hidden" name="action" value="toggle" />
+                      <input type="hidden" name="id" value={d.id} />
+                      <input type="hidden" name="active" value={d.active ? "0" : "1"} />
+                      <button
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          d.active
+                            ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                        }`}
+                      >
+                        {d.active ? "active" : "off"}
+                      </button>
+                    </form>
+                  </td>
                 </tr>
               ))}
             </tbody>

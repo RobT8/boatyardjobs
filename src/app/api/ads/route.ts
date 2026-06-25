@@ -13,6 +13,7 @@ import {
 } from "@/lib/ads";
 import { getSessionAdvertiser } from "@/lib/advertiser-auth";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
+import { applyDiscountCents, getValidDiscount } from "@/lib/discounts";
 import { currency, getStripe, isStripeEnabled } from "@/lib/stripe";
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -74,9 +75,22 @@ export async function POST(req: Request) {
   if (!EXT[file.type]) return bad("Banner must be a PNG, JPG, WebP or GIF.");
   if (file.size > MAX_BYTES) return bad("Banner must be 2MB or smaller.");
 
-  const priceCents =
+  let priceCents =
     periodType === "fixed" ? fixedTotalCents(channels, months!) : monthlyTotalCents(channels);
   if (priceCents <= 0) return bad("Could not price that selection.");
+
+  // Optional discount code — fixed-term placements only (we don't discount
+  // open-ended monthly subscriptions).
+  const code = get("discount");
+  let discount = null as Awaited<ReturnType<typeof getValidDiscount>>;
+  if (code) {
+    if (periodType !== "fixed") return bad("Discount codes apply to fixed-term placements only.");
+    discount = await getValidDiscount(code, "ads");
+    if (!discount) return bad("That discount code isn't valid (it may have expired or been used up).");
+    const discounted = applyDiscountCents(priceCents, discount.percent_off);
+    if (discounted <= 0) return bad("That code can't be applied to this advert.");
+    priceCents = discounted;
+  }
 
   try {
     const adId = await withTimeout(
@@ -140,7 +154,11 @@ export async function POST(req: Request) {
             customer_email: advertiser.email,
             success_url: `${base}/advertise/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${base}/advertise?canceled=1`,
-            metadata: { kind: "ad", adId: String(adId) },
+            metadata: {
+              kind: "ad",
+              adId: String(adId),
+              ...(discount ? { discountId: String(discount.id) } : {}),
+            },
             client_reference_id: String(adId),
           }),
       "Creating checkout"

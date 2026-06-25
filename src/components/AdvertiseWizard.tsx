@@ -368,6 +368,23 @@ export default function AdvertiseWizard({ channels, terms, states, roles, compan
             </p>
           </div>
 
+          {periodType === "fixed" && (
+            <div>
+              <label htmlFor="ad-discount" className="mb-1 block text-sm font-medium text-navy-800">
+                Discount code <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                id="ad-discount"
+                name="discount"
+                placeholder="Have a code? Enter it here"
+                className={inputCls}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Codes apply to fixed-term placements; the discount is applied at checkout.
+              </p>
+            </div>
+          )}
+
           {previewUrl && (
             <div>
               <p className="mb-2 text-sm font-medium text-navy-800">Preview — check it works</p>

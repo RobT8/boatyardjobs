@@ -18,11 +18,17 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ submitted?: string; error?: string; canceled?: string; autherror?: string }>;
+  searchParams: Promise<{
+    submitted?: string;
+    error?: string;
+    canceled?: string;
+    autherror?: string;
+    discount_error?: string;
+  }>;
 }
 
 export default async function PostJobPage({ searchParams }: Props) {
-  const { submitted, error, canceled, autherror } = await searchParams;
+  const { submitted, error, canceled, autherror, discount_error } = await searchParams;
   const employer = await getSessionEmployer();
   const paid = isStripeEnabled();
 
@@ -52,6 +58,12 @@ export default async function PostJobPage({ searchParams }: Props) {
         <p className="mt-6 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           Please check the form — every field except salary is required, and the description needs
           at least a few sentences.
+        </p>
+      )}
+      {discount_error && (
+        <p className="mt-6 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          That discount code isn&apos;t valid (it may have expired or been used up). Remove it or
+          enter a different one.
         </p>
       )}
       {canceled && (

@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { publishPaidJob, renewDirectJob } from "@/lib/jobs";
+import { incrementDiscountUse } from "@/lib/discounts";
 import {
   getAdById,
   renewFixedAd,
@@ -89,6 +90,10 @@ export async function POST(req: Request) {
         } else {
           const jobId = Number(session.metadata?.jobId);
           if (jobId) await publishPaidJob(jobId);
+        }
+        // Record a discount-code use once the payment actually clears.
+        if (session.metadata?.discountId) {
+          await incrementDiscountUse(Number(session.metadata.discountId));
         }
         break;
       }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { insertJob, setJobStripeSession } from "@/lib/jobs";
 import { getSessionEmployer } from "@/lib/employer-auth";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
+import { applyDiscountCents, getValidDiscount, incrementDiscountUse } from "@/lib/discounts";
 import {
   currency,
   featuredJobPostPriceCents,
@@ -66,8 +67,23 @@ export async function POST(req: Request) {
     redirect("/post-a-job?submitted=1");
   }
 
+  let priceCents = featured ? featuredJobPostPriceCents() : jobPostPriceCents();
+
+  // Optional discount code. An invalid/expired/used-up code is rejected so the
+  // buyer isn't silently charged full price after typing one in.
+  const code = get("discount");
+  const discount = code ? await getValidDiscount(code, "jobs") : null;
+  if (code && !discount) redirect("/post-a-job?discount_error=1");
+  if (discount) priceCents = applyDiscountCents(priceCents, discount.percent_off);
+
+  // A 100%-off code makes the listing free — publish it now and skip Stripe.
+  if (priceCents <= 0) {
+    await insertJob({ ...input, status: "published" });
+    if (discount) await incrementDiscountUse(discount.id);
+    redirect("/post-a-job/success?free=1");
+  }
+
   const { id } = await insertJob({ ...input, status: "unpaid" });
-  const priceCents = featured ? featuredJobPostPriceCents() : jobPostPriceCents();
   const base = new URL(req.url).origin;
   const session = await getStripe().checkout.sessions.create({
     mode: "payment",
@@ -89,7 +105,7 @@ export async function POST(req: Request) {
     success_url: `${base}/post-a-job/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${base}/post-a-job?canceled=1`,
     customer_email: apply_email,
-    metadata: { jobId: String(id) },
+    metadata: { jobId: String(id), ...(discount ? { discountId: String(discount.id) } : {}) },
     client_reference_id: String(id),
   });
 

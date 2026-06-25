@@ -260,6 +260,19 @@ export default function PostJobWizard({
               </div>
             </div>
           )}
+          {paid && (
+            <div>
+              <label htmlFor="discount" className="mb-1 block text-sm font-medium text-navy-800">
+                Discount code <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                id="discount"
+                name="discount"
+                placeholder="Have a code? Enter it here"
+                className={inputCls}
+              />
+            </div>
+          )}
           <p className="text-xs text-slate-500">
             {paid
               ? "Your listing goes live straight after secure Stripe checkout (30-day listing)."
