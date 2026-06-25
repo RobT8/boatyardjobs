@@ -121,7 +121,7 @@ export default async function HomePage() {
             Get new listings for your state and specialty by email. Free for candidates, always.
           </p>
           <div className="mt-5 max-w-3xl">
-            <AlertSignupForm />
+            <AlertSignupForm states={stateOptions} cities={cityOptions} />
           </div>
         </div>
       </section>
