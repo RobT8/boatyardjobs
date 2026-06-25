@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
 import { insertJob } from "@/lib/jobs";
+import { notifyJobLive } from "@/lib/google-indexing";
 import { upsertEmployer } from "@/lib/employers";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
     employer_id = employer.id;
   }
 
-  await insertJob({
+  const { slug } = await insertJob({
     title,
     company,
     city,
@@ -63,6 +64,8 @@ export async function POST(req: Request) {
     salary_max: Number.isFinite(salaryMax) ? salaryMax : null,
     salary_unit: get("salary_unit") === "HOUR" ? "HOUR" : "YEAR",
   });
+  // Live immediately — nudge Google for Jobs (no-op unless configured).
+  await notifyJobLive(slug);
 
   redirect("/admin?posted=1");
 }

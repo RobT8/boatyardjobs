@@ -10,6 +10,13 @@ name: Aggregate jobs
 #                              jobs, which RLS only allows the service role to do)
 #   ADZUNA_APP_ID              free from https://developer.adzuna.com
 #   ADZUNA_APP_KEY             free from https://developer.adzuna.com
+#
+# Optional (Google for Jobs Indexing API — pings Google as listings go live /
+# come down; the pipeline simply skips it if these are absent):
+#   SITE_URL                       e.g. https://boatyardjobs.com (for the URLs sent)
+#   GOOGLE_INDEXING_CLIENT_EMAIL   service-account email (Owner of the Search
+#                                  Console property, Indexing API enabled)
+#   GOOGLE_INDEXING_PRIVATE_KEY    the service account's PEM private key
 
 on:
   schedule:
@@ -33,4 +40,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          GOOGLE_INDEXING_CLIENT_EMAIL: ${{ secrets.GOOGLE_INDEXING_CLIENT_EMAIL }}
+          GOOGLE_INDEXING_PRIVATE_KEY: ${{ secrets.GOOGLE_INDEXING_PRIVATE_KEY }}
         run: npm run aggregate

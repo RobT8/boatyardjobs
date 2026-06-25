@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { insertJob, setJobStripeSession } from "@/lib/jobs";
+import { notifyJobLive } from "@/lib/google-indexing";
 import { getSessionEmployer } from "@/lib/employer-auth";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
 import { applyDiscountCents, getValidDiscount, incrementDiscountUse } from "@/lib/discounts";
@@ -78,8 +79,9 @@ export async function POST(req: Request) {
 
   // A 100%-off code makes the listing free — publish it now and skip Stripe.
   if (priceCents <= 0) {
-    await insertJob({ ...input, status: "published" });
+    const { slug } = await insertJob({ ...input, status: "published" });
     if (discount) await incrementDiscountUse(discount.id);
+    await notifyJobLive(slug); // live now → nudge Google (no-op unless configured)
     redirect("/post-a-job/success?free=1");
   }
 

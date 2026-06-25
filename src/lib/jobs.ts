@@ -18,6 +18,8 @@ export interface Job {
   source_url: string | null;
   apply_email: string | null;
   featured: number;
+  /** Generated display tier: 0 featured · 1 direct/paid · 2 scraped feed. */
+  listing_rank: number;
   status: string;
   posted_at: string;
   expires_at: string | null;
@@ -92,7 +94,10 @@ export async function listJobs(filters: JobFilters = {}): Promise<{ jobs: Job[];
     }
   }
 
-  let ordered = query.order("featured", { ascending: false });
+  // Tier first — featured, then direct/paid, then scraped feed (listing_rank
+  // generated column) — so the board always reads in that order regardless of
+  // the chosen within-tier sort.
+  let ordered = query.order("listing_rank", { ascending: true });
   if (filters.sort === "oldest") {
     ordered = ordered.order("posted_at", { ascending: true });
   } else if (filters.sort === "salary") {
@@ -336,9 +341,10 @@ export async function setJobStripeSession(id: number, sessionId: string): Promis
 
 /**
  * Publish a paid listing. Idempotent: only flips a still-'unpaid' job to
- * published (so repeated webhook deliveries are safe). Returns whether it acted.
+ * published (so repeated webhook deliveries are safe). Returns the listing's
+ * slug if it acted (so the caller can notify search engines), else null.
  */
-export async function publishPaidJob(jobId: number): Promise<boolean> {
+export async function publishPaidJob(jobId: number): Promise<string | null> {
   const now = new Date().toISOString();
   const { data, error } = await getDb()
     .from("jobs")
@@ -350,9 +356,9 @@ export async function publishPaidJob(jobId: number): Promise<boolean> {
     })
     .eq("id", jobId)
     .eq("status", "unpaid")
-    .select("id");
+    .select("slug");
   if (error) throw error;
-  return (data?.length ?? 0) > 0;
+  return (data?.[0]?.slug as string) ?? null;
 }
 
 /**
@@ -388,6 +394,13 @@ export function jobValidThroughIso(job: Pick<Job, "expires_at" | "posted_at">): 
 
 export type UpsertResult = "created" | "updated" | "unchanged";
 
+/** Outcome of an upsert plus the affected listing's slug (null when unchanged
+ *  or when nothing was written), so callers can notify search engines. */
+export interface UpsertOutcome {
+  result: UpsertResult;
+  slug: string | null;
+}
+
 /** True if a published job with the same title/company/state already exists —
  * used to stop aggregators (notably Adzuna) creating duplicate rows for the
  * same job listed under multiple URLs. */
@@ -412,7 +425,7 @@ async function publishedDuplicateExists(
  * the row was created, updated (content changed), or left unchanged. A listing
  * that had expired comes back to 'published' if it reappears upstream.
  */
-export async function upsertSourcedJob(input: NewJobInput): Promise<UpsertResult> {
+export async function upsertSourcedJob(input: NewJobInput): Promise<UpsertOutcome> {
   const db = getDb();
   const source = input.source ?? "direct";
 
@@ -434,14 +447,14 @@ export async function upsertSourcedJob(input: NewJobInput): Promise<UpsertResult
         .eq("status", "published");
       if (error) throw error;
     }
-    return "unchanged";
+    return { result: "unchanged", slug: null };
   }
 
   if (!input.source_url) {
     // No stable upstream key — only insert if it isn't already on the board.
-    if (await publishedDuplicateExists(input)) return "unchanged";
-    await insertJob(input);
-    return "created";
+    if (await publishedDuplicateExists(input)) return { result: "unchanged", slug: null };
+    const { slug } = await insertJob(input);
+    return { result: "created", slug };
   }
 
   const { data: existing, error } = await db
@@ -455,9 +468,9 @@ export async function upsertSourcedJob(input: NewJobInput): Promise<UpsertResult
   if (!existing) {
     // New (source, source_url), but skip if the same job already exists (e.g.
     // the aggregator returned it under another URL).
-    if (await publishedDuplicateExists(input)) return "unchanged";
-    await insertJob(input);
-    return "created";
+    if (await publishedDuplicateExists(input)) return { result: "unchanged", slug: null };
+    const { slug } = await insertJob(input);
+    return { result: "created", slug };
   }
 
   const ex = normalize(existing);
@@ -489,23 +502,24 @@ export async function upsertSourcedJob(input: NewJobInput): Promise<UpsertResult
     ex.salary_unit === next.salary_unit &&
     JSON.stringify(ex.certifications) === JSON.stringify(next.certifications);
 
-  if (unchanged) return "unchanged";
+  if (unchanged) return { result: "unchanged", slug: ex.slug };
 
   const { error: updErr } = await db
     .from("jobs")
     .update({ ...next, status: "published" })
     .eq("id", ex.id);
   if (updErr) throw updErr;
-  return "updated";
+  return { result: "updated", slug: ex.slug };
 }
 
 /**
  * Mark every published listing from `source` whose source_url is NOT in
  * `seenUrls` as expired — i.e. it vanished upstream since the last run. Returns
  * the number of rows expired. Callers must only invoke this after a *successful*
- * fetch, or a transient upstream outage would wipe the board.
+ * fetch, or a transient upstream outage would wipe the board. Returns the slugs
+ * of the expired listings (so callers can notify search engines).
  */
-export async function expireMissingFromSource(source: string, seenUrls: string[]): Promise<number> {
+export async function expireMissingFromSource(source: string, seenUrls: string[]): Promise<string[]> {
   const db = getDb();
   const { data: live, error } = await db
     .from("jobs")
@@ -518,14 +532,15 @@ export async function expireMissingFromSource(source: string, seenUrls: string[]
   const staleIds = (live ?? [])
     .filter((r) => r.source_url && !seen.has(r.source_url))
     .map((r) => r.id as number);
-  if (staleIds.length === 0) return 0;
+  if (staleIds.length === 0) return [];
 
-  const { error: updErr } = await db
+  const { data, error: updErr } = await db
     .from("jobs")
     .update({ status: "expired" })
-    .in("id", staleIds);
+    .in("id", staleIds)
+    .select("slug");
   if (updErr) throw updErr;
-  return staleIds.length;
+  return (data ?? []).map((r) => r.slug as string);
 }
 
 /**
@@ -535,26 +550,27 @@ export async function expireMissingFromSource(source: string, seenUrls: string[]
  *
  * This is the authoritative, source-independent enforcement of the age cap: it
  * runs once per aggregation pass (after the per-source loop) so a source whose
- * fetch failed that run still gets its aged rows swept.
+ * fetch failed that run still gets its aged rows swept. Returns the slugs of
+ * the expired listings (so callers can notify search engines).
  */
-export async function expireAgedFeedJobs(maxAgeMonths = FEED_MAX_AGE_MONTHS): Promise<number> {
+export async function expireAgedFeedJobs(maxAgeMonths = FEED_MAX_AGE_MONTHS): Promise<string[]> {
   const { data, error } = await getDb()
     .from("jobs")
     .update({ status: "expired" })
     .eq("status", "published")
     .neq("source", "direct")
     .lt("posted_at", monthsAgoIso(maxAgeMonths))
-    .select("id");
+    .select("slug");
   if (error) throw error;
-  return data?.length ?? 0;
+  return (data ?? []).map((r) => r.slug as string);
 }
 
 /**
  * Retire every direct (site-bought) listing whose fixed run has elapsed, i.e.
  * a published 'direct' job with an `expires_at` in the past. Run daily. Returns
- * the number expired. The employer can renew to restart the clock.
+ * the slugs of the expired listings. The employer can renew to restart the clock.
  */
-export async function expireOverdueDirectJobs(): Promise<number> {
+export async function expireOverdueDirectJobs(): Promise<string[]> {
   const { data, error } = await getDb()
     .from("jobs")
     .update({ status: "expired" })
@@ -562,9 +578,9 @@ export async function expireOverdueDirectJobs(): Promise<number> {
     .eq("source", "direct")
     .not("expires_at", "is", null)
     .lt("expires_at", new Date().toISOString())
-    .select("id");
+    .select("slug");
   if (error) throw error;
-  return data?.length ?? 0;
+  return (data ?? []).map((r) => r.slug as string);
 }
 
 /**
@@ -573,8 +589,10 @@ export async function expireOverdueDirectJobs(): Promise<number> {
  * can fire. Idempotent per Stripe checkout session: a retried webhook with the
  * same `sessionId` is a no-op, so the run is never double-extended. Remaining
  * days on a still-live listing are preserved (we extend from its current end).
+ * Returns the listing's slug if it acted (for search-engine notification), else
+ * null.
  */
-export async function renewDirectJob(jobId: number, sessionId: string): Promise<boolean> {
+export async function renewDirectJob(jobId: number, sessionId: string): Promise<string | null> {
   const db = getDb();
   const { data: job, error } = await db
     .from("jobs")
@@ -582,8 +600,8 @@ export async function renewDirectJob(jobId: number, sessionId: string): Promise<
     .eq("id", jobId)
     .maybeSingle();
   if (error) throw error;
-  if (!job || job.source !== "direct") return false;
-  if (job.stripe_session_id === sessionId) return false; // already applied
+  if (!job || job.source !== "direct") return null;
+  if (job.stripe_session_id === sessionId) return null; // already applied
 
   const now = new Date();
   const currentEnd = job.expires_at ? new Date(job.expires_at as string) : null;
@@ -599,9 +617,9 @@ export async function renewDirectJob(jobId: number, sessionId: string): Promise<
     })
     .eq("id", jobId)
     .neq("stripe_session_id", sessionId)
-    .select("id");
+    .select("slug");
   if (updErr) throw updErr;
-  return (data?.length ?? 0) > 0;
+  return (data?.[0]?.slug as string) ?? null;
 }
 
 /** A soon-to-expire direct listing plus the employer to warn (if any). */
