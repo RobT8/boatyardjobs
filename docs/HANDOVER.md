@@ -107,9 +107,10 @@
     fns (now return `string[]` of slugs); `publishPaidJob`/`renewDirectJob` now
     return the slug.
   - Stripe webhook (new direct job, job renew), admin "post for a client",
-    post-job 100%-off path → `URL_UPDATED`. **Note:** these run on Vercel, which
-    isn't covered by the cron's WIF — they no-op there until Vercel gets creds of
-    its own (deferred; the cron re-notifies anything still live).
+    post-job 100%-off path → `URL_UPDATED`. These run on Vercel and are keyless
+    too: the code exchanges the runtime's `VERCEL_OIDC_TOKEN` via Google STS and
+    impersonates the SA (needs Vercel OIDC on + a `vercel` WIF provider + the
+    `GCP_*` env vars; see the setup doc step 5). No-op until configured.
   - `aggregate.yml`: `permissions: id-token: write` + a `google-github-actions/auth@v2`
     step (token_format=access_token, indexing scope), guarded on repo vars
     `GCP_WORKLOAD_IDENTITY_PROVIDER` / `GCP_INDEXING_SERVICE_ACCOUNT`; passes

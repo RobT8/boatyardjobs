@@ -9,16 +9,21 @@ import { siteUrl } from "./email";
  * tell Google the moment a listing goes live or comes down, instead of waiting
  * for the next organic crawl.
  *
- * Auth — two supported modes, checked in this order (see docs/google-indexing-setup.md):
- *  1. **Keyless (preferred).** A pre-minted OAuth access token in
+ * Auth — three keyless-first modes, checked in this order (see
+ * docs/google-indexing-setup.md):
+ *  1. **Pre-minted token (CI).** A ready access token in
  *       GOOGLE_INDEXING_ACCESS_TOKEN
- *     — produced by Workload Identity Federation (the GitHub Actions cron uses
- *     `google-github-actions/auth` with token_format=access_token). No key to
- *     store or rotate.
- *  2. **Service-account key (fallback).** A JSON key's fields in
+ *     — the GitHub Actions cron mints it with `google-github-actions/auth`
+ *     (Workload Identity Federation, token_format=access_token).
+ *  2. **Vercel OIDC (server runtime).** When running on Vercel with OIDC
+ *     federation on, the runtime exposes VERCEL_OIDC_TOKEN; we exchange it with
+ *     Google STS and impersonate the service account — keyless. Needs:
+ *       GCP_WORKLOAD_IDENTITY_PROVIDER  – full WIF provider resource name
+ *       GCP_INDEXING_SERVICE_ACCOUNT    – service-account email to impersonate
+ *  3. **Service-account key (fallback).** A JSON key's fields in
  *       GOOGLE_INDEXING_CLIENT_EMAIL  – service account email
  *       GOOGLE_INDEXING_PRIVATE_KEY   – its private key (PEM; literal or \n-escaped)
- *     We sign a JWT and exchange it for a token. Used where OIDC isn't available.
+ *     We sign a JWT and exchange it for a token. For where neither OIDC fits.
  *
  * Either way the service account's email must be an **Owner** of the
  * boatyardjobs.com property in Google Search Console. With neither mode
@@ -36,6 +41,9 @@ const SCOPE = "https://www.googleapis.com/auth/indexing";
 export function isIndexingEnabled(): boolean {
   return !!(
     process.env.GOOGLE_INDEXING_ACCESS_TOKEN ||
+    (process.env.VERCEL_OIDC_TOKEN &&
+      process.env.GCP_WORKLOAD_IDENTITY_PROVIDER &&
+      process.env.GCP_INDEXING_SERVICE_ACCOUNT) ||
     (process.env.GOOGLE_INDEXING_CLIENT_EMAIL && process.env.GOOGLE_INDEXING_PRIVATE_KEY)
   );
 }
@@ -56,6 +64,58 @@ const b64url = (input: crypto.BinaryLike): string =>
 // Access tokens are valid ~1h; cache and reuse within a process/run.
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+const STS_URL = "https://sts.googleapis.com/v1/token";
+const IAM_CREDENTIALS_URL = "https://iamcredentials.googleapis.com/v1";
+
+/**
+ * Keyless auth on Vercel: exchange the runtime's OIDC token (VERCEL_OIDC_TOKEN)
+ * for a Google federated token via STS, then impersonate the indexing service
+ * account to get an Indexing-API-scoped access token. Returns null when not
+ * running under Vercel OIDC (so the caller falls through to other modes).
+ */
+async function getAccessTokenViaVercelOidc(): Promise<{ token: string; expiresAt: number } | null> {
+  const oidc = process.env.VERCEL_OIDC_TOKEN;
+  const provider = process.env.GCP_WORKLOAD_IDENTITY_PROVIDER;
+  const serviceAccount = process.env.GCP_INDEXING_SERVICE_ACCOUNT;
+  if (!oidc || !provider || !serviceAccount) return null;
+
+  // 1. Trade the Vercel OIDC token for a short-lived Google federated token.
+  const stsRes = await fetch(STS_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+      audience: `//iam.googleapis.com/${provider}`,
+      scope: "https://www.googleapis.com/auth/cloud-platform",
+      requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
+      subject_token: oidc,
+      subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
+    }),
+  });
+  if (!stsRes.ok) throw new Error(`STS exchange ${stsRes.status}: ${await stsRes.text()}`);
+  const federated = (await stsRes.json()) as { access_token: string };
+
+  // 2. Impersonate the service account (the Search Console owner) to mint a
+  //    token scoped to the Indexing API.
+  const impRes = await fetch(
+    `${IAM_CREDENTIALS_URL}/projects/-/serviceAccounts/${serviceAccount}:generateAccessToken`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${federated.access_token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ scope: [SCOPE] }),
+    }
+  );
+  if (!impRes.ok) throw new Error(`generateAccessToken ${impRes.status}: ${await impRes.text()}`);
+  const minted = (await impRes.json()) as { accessToken: string; expireTime: string };
+  return {
+    token: minted.accessToken,
+    expiresAt: Math.floor(new Date(minted.expireTime).getTime() / 1000),
+  };
+}
+
 async function getAccessToken(): Promise<string> {
   // Keyless path: a token already minted upstream (Workload Identity Federation
   // in CI). Use it as-is — no key, no signing. The CI step scopes it to the
@@ -65,6 +125,13 @@ async function getAccessToken(): Promise<string> {
 
   const now = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedToken.expiresAt - 60 > now) return cachedToken.token;
+
+  // Keyless on Vercel: federate the runtime's OIDC token.
+  const viaVercel = await getAccessTokenViaVercelOidc();
+  if (viaVercel) {
+    cachedToken = viaVercel;
+    return viaVercel.token;
+  }
 
   const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const claims = b64url(
