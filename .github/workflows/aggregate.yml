@@ -11,17 +11,26 @@ name: Aggregate jobs
 #   ADZUNA_APP_ID              free from https://developer.adzuna.com
 #   ADZUNA_APP_KEY             free from https://developer.adzuna.com
 #
-# Optional (Google for Jobs Indexing API — pings Google as listings go live /
-# come down; the pipeline simply skips it if these are absent):
-#   SITE_URL                       e.g. https://boatyardjobs.com (for the URLs sent)
-#   GOOGLE_INDEXING_CLIENT_EMAIL   service-account email (Owner of the Search
-#                                  Console property, Indexing API enabled)
-#   GOOGLE_INDEXING_PRIVATE_KEY    the service account's PEM private key
+# Optional — Google for Jobs Indexing API (pings Google as listings go live /
+# come down). Keyless via Workload Identity Federation: no service-account key is
+# stored. The pipeline simply skips indexing if these aren't configured.
+# Set as repository *variables* (not secrets — they aren't sensitive):
+#   GCP_WORKLOAD_IDENTITY_PROVIDER  full provider resource name, e.g.
+#     projects/123456789/locations/global/workloadIdentityPools/github/providers/github-actions
+#   GCP_INDEXING_SERVICE_ACCOUNT    service-account email (Owner of the Search
+#                                   Console property; Indexing API enabled)
+# And as a secret:
+#   SITE_URL                        e.g. https://boatyardjobs.com (for the URLs sent)
+# See docs/google-indexing-setup.md for the one-time GCP setup.
 
 on:
   schedule:
     - cron: "0 7 * * *" # daily at 07:00 UTC
   workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write # required to mint the OIDC token for Workload Identity Federation
 
 jobs:
   aggregate:
@@ -29,6 +38,18 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
+      # Keyless auth to Google. Skipped (and indexing stays off) until the two
+      # GCP_* repo variables are set, so the rest of the run is unaffected.
+      - id: gauth
+        if: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_INDEXING_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/indexing
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -41,6 +62,7 @@ jobs:
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
           SITE_URL: ${{ secrets.SITE_URL }}
-          GOOGLE_INDEXING_CLIENT_EMAIL: ${{ secrets.GOOGLE_INDEXING_CLIENT_EMAIL }}
-          GOOGLE_INDEXING_PRIVATE_KEY: ${{ secrets.GOOGLE_INDEXING_PRIVATE_KEY }}
+          # Pre-minted, Indexing-API-scoped access token from the auth step above
+          # (empty when WIF isn't configured → indexing is a no-op).
+          GOOGLE_INDEXING_ACCESS_TOKEN: ${{ steps.gauth.outputs.access_token }}
         run: npm run aggregate
