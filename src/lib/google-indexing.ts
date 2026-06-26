@@ -9,15 +9,20 @@ import { siteUrl } from "./email";
  * tell Google the moment a listing goes live or comes down, instead of waiting
  * for the next organic crawl.
  *
- * Setup (one-time):
- *  1. Create a Google Cloud service account, enable the Indexing API on it.
- *  2. In Google Search Console, add the service account's email as an **Owner**
- *     of the boatyardjobs.com property.
- *  3. Set env vars (the cron + the server both read these):
+ * Auth — two supported modes, checked in this order (see docs/google-indexing-setup.md):
+ *  1. **Keyless (preferred).** A pre-minted OAuth access token in
+ *       GOOGLE_INDEXING_ACCESS_TOKEN
+ *     — produced by Workload Identity Federation (the GitHub Actions cron uses
+ *     `google-github-actions/auth` with token_format=access_token). No key to
+ *     store or rotate.
+ *  2. **Service-account key (fallback).** A JSON key's fields in
  *       GOOGLE_INDEXING_CLIENT_EMAIL  – service account email
  *       GOOGLE_INDEXING_PRIVATE_KEY   – its private key (PEM; literal or \n-escaped)
+ *     We sign a JWT and exchange it for a token. Used where OIDC isn't available.
  *
- * Without those vars every function here is a no-op, so it's safe to ship dark.
+ * Either way the service account's email must be an **Owner** of the
+ * boatyardjobs.com property in Google Search Console. With neither mode
+ * configured every function here is a no-op, so it's safe to ship dark.
  *
  * Quota: Google grants ~200 publish calls/day by default. We only notify on
  * deltas (new/changed/removed listings), never the whole board, and stop early
@@ -30,7 +35,8 @@ const SCOPE = "https://www.googleapis.com/auth/indexing";
 
 export function isIndexingEnabled(): boolean {
   return !!(
-    process.env.GOOGLE_INDEXING_CLIENT_EMAIL && process.env.GOOGLE_INDEXING_PRIVATE_KEY
+    process.env.GOOGLE_INDEXING_ACCESS_TOKEN ||
+    (process.env.GOOGLE_INDEXING_CLIENT_EMAIL && process.env.GOOGLE_INDEXING_PRIVATE_KEY)
   );
 }
 
@@ -51,6 +57,12 @@ const b64url = (input: crypto.BinaryLike): string =>
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getAccessToken(): Promise<string> {
+  // Keyless path: a token already minted upstream (Workload Identity Federation
+  // in CI). Use it as-is — no key, no signing. The CI step scopes it to the
+  // Indexing API and it lives only for that job.
+  const preIssued = process.env.GOOGLE_INDEXING_ACCESS_TOKEN;
+  if (preIssued) return preIssued;
+
   const now = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedToken.expiresAt - 60 > now) return cachedToken.token;
 

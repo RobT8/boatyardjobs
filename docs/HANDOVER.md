@@ -94,9 +94,12 @@
 - **Google Indexing API** (`src/lib/google-indexing.ts`) — pings Google the
   moment a JobPosting page goes live / changes / comes down, instead of waiting
   for an organic crawl. JWT (RS256) signed with Node `crypto`, no new deps;
-  access-token cached per run. Env-gated — fully no-op unless
-  `GOOGLE_INDEXING_CLIENT_EMAIL` + `GOOGLE_INDEXING_PRIVATE_KEY` are set (and the
-  service account is an **Owner** of the Search Console property). Wired in:
+  access-token cached per run. **Auth is keyless** — our Google org's
+  Secure-by-Default policy blocks service-account keys, so the GitHub cron uses
+  **Workload Identity Federation**: the code reads a pre-minted
+  `GOOGLE_INDEXING_ACCESS_TOKEN` (the JSON-key/JWT flow remains as a fallback).
+  Fully no-op unless configured; the service account must be an **Owner** of the
+  Search Console property. Setup steps: `docs/google-indexing-setup.md`. Wired in:
   - aggregation cron (`scripts/aggregate/run.ts`): created/updated feed slugs →
     `URL_UPDATED`, expired slugs → `URL_DELETED`, batched at end, best-effort,
     stops early on quota (default ~200/day). Required plumbing slugs out of
@@ -104,12 +107,17 @@
     fns (now return `string[]` of slugs); `publishPaidJob`/`renewDirectJob` now
     return the slug.
   - Stripe webhook (new direct job, job renew), admin "post for a client",
-    post-job 100%-off path → `URL_UPDATED`.
-  - `aggregate.yml` passes the new secrets (`SITE_URL`,
-    `GOOGLE_INDEXING_CLIENT_EMAIL`, `GOOGLE_INDEXING_PRIVATE_KEY`).
-  - **TODO to go live:** create the GCP service account + enable Indexing API,
-    add it as a Search Console owner, set the env vars (Vercel + the GH Action
-    secrets). Until then it's dark.
+    post-job 100%-off path → `URL_UPDATED`. **Note:** these run on Vercel, which
+    isn't covered by the cron's WIF — they no-op there until Vercel gets creds of
+    its own (deferred; the cron re-notifies anything still live).
+  - `aggregate.yml`: `permissions: id-token: write` + a `google-github-actions/auth@v2`
+    step (token_format=access_token, indexing scope), guarded on repo vars
+    `GCP_WORKLOAD_IDENTITY_PROVIDER` / `GCP_INDEXING_SERVICE_ACCOUNT`; passes
+    `GOOGLE_INDEXING_ACCESS_TOKEN` + `SITE_URL` to the run.
+  - **TODO to go live (keyless):** run the GCP setup in
+    `docs/google-indexing-setup.md` (enable API, create SA — no key, create WIF
+    pool/provider for the repo), add the SA as a Search Console **Owner**, set the
+    two repo *variables* + `SITE_URL` secret. Until then it's dark.
 
 ### 2026-06-25 — Google for Jobs: validThrough + JSON-LD hardening
 Audited the `JobPosting` structured data (`src/app/jobs/[slug]/page.tsx`) against
