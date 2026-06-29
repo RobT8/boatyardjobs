@@ -734,6 +734,21 @@ export function descriptionParagraphs(text: string): string[] {
   return out.length ? out : [t];
 }
 
+/**
+ * Render a job description as escaped HTML paragraphs for the schema.org
+ * JobPosting `description` field. Google for Jobs displays this markup, so we
+ * emit one `<p>` per readable paragraph (via {@link descriptionParagraphs}) and
+ * escape `&`, `<`, `>` in the text so the embedded HTML stays valid even when a
+ * scraped description contains those characters.
+ */
+export function descriptionHtml(text: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return descriptionParagraphs(text)
+    .map((p) => `<p>${esc(p)}</p>`)
+    .join("");
+}
+
 export function formatSalary(job: Job): string | null {
   if (job.salary_min == null && job.salary_max == null) return null;
   const fmt = (n: number) =>

@@ -6,6 +6,7 @@ import SponsorSlot from "@/components/SponsorSlot";
 import BackToJobs from "@/components/BackToJobs";
 import ShareJob from "@/components/ShareJob";
 import {
+  descriptionHtml,
   descriptionParagraphs,
   formatSalary,
   getJobBySlug,
@@ -36,7 +37,10 @@ function jobPostingJsonLd(job: Job) {
     "@context": "https://schema.org/",
     "@type": "JobPosting",
     title: job.title,
-    description: `<p>${job.description}</p>`,
+    // HTML description with real paragraph breaks. Google for Jobs renders this
+    // markup, so emitting one <p> per paragraph reads far better in the widget
+    // than wrapping the whole (often run-on) description in a single <p>.
+    description: descriptionHtml(job.description),
     datePosted: job.posted_at.slice(0, 10),
     employmentType: job.employment_type,
     // Google uses identifier to de-duplicate the same posting across boards.
