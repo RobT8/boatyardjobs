@@ -14,6 +14,10 @@ export interface Job {
   salary_max: number | null;
   salary_unit: "YEAR" | "HOUR";
   certifications: string[];
+  /** Street address of the job location (direct listings only; feed jobs lack it). */
+  street_address: string | null;
+  /** Postal/ZIP code of the job location (direct listings only). */
+  postal_code: string | null;
   source: string;
   source_url: string | null;
   apply_email: string | null;
@@ -246,6 +250,8 @@ export interface NewJobInput {
   salary_max?: number | null;
   salary_unit?: "YEAR" | "HOUR";
   certifications?: string[];
+  street_address?: string | null;
+  postal_code?: string | null;
   source?: string;
   source_url?: string | null;
   apply_email?: string | null;
@@ -294,6 +300,8 @@ function toRow(input: NewJobInput, slug: string) {
     salary_max: input.salary_max ?? null,
     salary_unit: input.salary_unit ?? "YEAR",
     certifications: input.certifications ?? [],
+    street_address: input.street_address ?? null,
+    postal_code: input.postal_code ?? null,
     source,
     source_url: input.source_url ?? null,
     apply_email: input.apply_email ?? null,
@@ -747,6 +755,78 @@ export function descriptionHtml(text: string): string {
   return descriptionParagraphs(text)
     .map((p) => `<p>${esc(p)}</p>`)
     .join("");
+}
+
+/** Company-level branding for the hiring organization, pulled from the employer
+ *  that owns a direct listing. Both fields optional — absent for feed jobs. */
+export interface HiringOrgBranding {
+  /** Employer website → hiringOrganization.sameAs (links the company in the widget). */
+  website?: string | null;
+  /** Employer logo URL → hiringOrganization.logo. */
+  logo?: string | null;
+}
+
+/**
+ * Build schema.org JobPosting JSON-LD for a listing — required for Google for
+ * Jobs inclusion. Pure (no I/O) so it can be unit-tested. Pass the owning
+ * employer's `branding` to enrich `hiringOrganization` with the company website
+ * (sameAs) and logo; omit it for feed listings that have no employer.
+ */
+export function jobPostingJsonLd(job: Job, branding?: HiringOrgBranding): Record<string, unknown> {
+  const hiringOrganization: Record<string, unknown> = {
+    "@type": "Organization",
+    name: job.company,
+  };
+  // Link the company in the jobs widget when we know its site/logo.
+  if (branding?.website) hiringOrganization.sameAs = branding.website;
+  if (branding?.logo) hiringOrganization.logo = branding.logo;
+
+  const address: Record<string, unknown> = {
+    "@type": "PostalAddress",
+    addressLocality: job.city,
+    addressRegion: job.state,
+    addressCountry: "US",
+  };
+  // streetAddress/postalCode are only present on direct listings; including them
+  // when known earns a map pin and clears the GSC "improve appearance" warnings.
+  if (job.street_address) address.streetAddress = job.street_address;
+  if (job.postal_code) address.postalCode = job.postal_code;
+
+  const ld: Record<string, unknown> = {
+    "@context": "https://schema.org/",
+    "@type": "JobPosting",
+    title: job.title,
+    // HTML description with real paragraph breaks (Google for Jobs renders this).
+    description: descriptionHtml(job.description),
+    datePosted: job.posted_at.slice(0, 10),
+    employmentType: job.employment_type,
+    // Google uses identifier to de-duplicate the same posting across boards.
+    identifier: {
+      "@type": "PropertyValue",
+      name: job.company,
+      value: String(job.id),
+    },
+    // True when the candidate applies on our site rather than an external listing.
+    directApply: job.source === "direct",
+    hiringOrganization,
+    jobLocation: { "@type": "Place", address },
+  };
+  // Always dated: real expiry for direct listings, the age-cap bound for feed
+  // listings. Google for Jobs strongly prefers a posting with validThrough.
+  ld.validThrough = jobValidThroughIso(job).slice(0, 10);
+  if (job.salary_min != null || job.salary_max != null) {
+    ld.baseSalary = {
+      "@type": "MonetaryAmount",
+      currency: "USD",
+      value: {
+        "@type": "QuantitativeValue",
+        minValue: job.salary_min ?? undefined,
+        maxValue: job.salary_max ?? undefined,
+        unitText: job.salary_unit,
+      },
+    };
+  }
+  return ld;
 }
 
 export function formatSalary(job: Job): string | null {

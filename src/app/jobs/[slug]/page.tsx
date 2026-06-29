@@ -6,13 +6,12 @@ import SponsorSlot from "@/components/SponsorSlot";
 import BackToJobs from "@/components/BackToJobs";
 import ShareJob from "@/components/ShareJob";
 import {
-  descriptionHtml,
   descriptionParagraphs,
   formatSalary,
   getJobBySlug,
-  jobValidThroughIso,
-  type Job,
+  jobPostingJsonLd,
 } from "@/lib/jobs";
+import { getEmployerById } from "@/lib/employers";
 import { ROLE_CATEGORIES, stateSlug, US_STATES } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
@@ -29,58 +28,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${job.title} — ${job.company}, ${job.city} ${job.state}`,
     description: job.description.slice(0, 160),
   };
-}
-
-/** schema.org JobPosting markup — required for Google for Jobs inclusion. */
-function jobPostingJsonLd(job: Job) {
-  const ld: Record<string, unknown> = {
-    "@context": "https://schema.org/",
-    "@type": "JobPosting",
-    title: job.title,
-    // HTML description with real paragraph breaks. Google for Jobs renders this
-    // markup, so emitting one <p> per paragraph reads far better in the widget
-    // than wrapping the whole (often run-on) description in a single <p>.
-    description: descriptionHtml(job.description),
-    datePosted: job.posted_at.slice(0, 10),
-    employmentType: job.employment_type,
-    // Google uses identifier to de-duplicate the same posting across boards.
-    identifier: {
-      "@type": "PropertyValue",
-      name: job.company,
-      value: String(job.id),
-    },
-    // True when the candidate applies on our site rather than an external listing.
-    directApply: job.source === "direct",
-    hiringOrganization: {
-      "@type": "Organization",
-      name: job.company,
-    },
-    jobLocation: {
-      "@type": "Place",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: job.city,
-        addressRegion: job.state,
-        addressCountry: "US",
-      },
-    },
-  };
-  // Always dated: real expiry for direct listings, the age-cap bound for feed
-  // listings. Google for Jobs strongly prefers a posting with validThrough.
-  ld.validThrough = jobValidThroughIso(job).slice(0, 10);
-  if (job.salary_min != null || job.salary_max != null) {
-    ld.baseSalary = {
-      "@type": "MonetaryAmount",
-      currency: "USD",
-      value: {
-        "@type": "QuantitativeValue",
-        minValue: job.salary_min ?? undefined,
-        maxValue: job.salary_max ?? undefined,
-        unitText: job.salary_unit,
-      },
-    };
-  }
-  return ld;
 }
 
 /**
@@ -100,6 +47,14 @@ export default async function JobDetailPage({ params }: Props) {
   const job = await getJobBySlug(slug);
   if (!job || job.status !== "published") notFound();
 
+  // Enrich hiringOrganization (sameAs/logo) from the owning employer, when this
+  // is a direct listing with branding set. Feed listings have no employer_id.
+  const employer = job.employer_id ? await getEmployerById(job.employer_id) : null;
+  const jsonLd = jobPostingJsonLd(job, {
+    website: employer?.website,
+    logo: employer?.logo_url,
+  });
+
   const role = ROLE_CATEGORIES.find((r) => r.slug === job.category);
   const salary = formatSalary(job);
   const stateName = US_STATES[job.state] ?? job.state;
@@ -108,7 +63,7 @@ export default async function JobDetailPage({ params }: Props) {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLd(jobPostingJsonLd(job)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <div className="mb-4">
         <BackToJobs />

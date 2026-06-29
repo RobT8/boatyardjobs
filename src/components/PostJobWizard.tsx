@@ -131,6 +131,23 @@ export default function PostJobWizard({
               </select>
             </div>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-navy-800">
+                Street address <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input name="street_address" placeholder="123 Harbor Dr" className={inputCls} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-navy-800">
+                ZIP / postal code <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input name="postal_code" placeholder="33301" className={inputCls} />
+            </div>
+          </div>
+          <p className="-mt-2 text-xs text-slate-500">
+            Adding the address helps your listing show a map pin in Google&apos;s jobs results.
+          </p>
           <div className="flex justify-end border-t border-slate-100 pt-4">
             <button
               type="button"

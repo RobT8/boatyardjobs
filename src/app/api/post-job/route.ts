@@ -31,6 +31,9 @@ export async function POST(req: Request) {
   const category = get("category");
   const description = get("description");
   const apply_email = get("apply_email");
+  // Optional, for richer JobPosting structured data (Google for Jobs map pin).
+  const street_address = get("street_address") || null;
+  const postal_code = get("postal_code") || null;
 
   const valid =
     title.length > 2 &&
@@ -55,6 +58,8 @@ export async function POST(req: Request) {
     category,
     description,
     apply_email,
+    street_address,
+    postal_code,
     employer_id: employer!.id,
     featured,
     salary_min: Number.isFinite(salaryMin) ? salaryMin : null,

@@ -10,6 +10,10 @@ export interface Employer {
   stripe_customer_id: string | null;
   login_token: string;
   created_at: string;
+  /** Company website → schema.org hiringOrganization.sameAs on the employer's listings. */
+  website: string | null;
+  /** Company logo URL → hiringOrganization.logo. */
+  logo_url: string | null;
 }
 
 export async function createEmployerWithPassword(
@@ -74,6 +78,23 @@ export async function setEmployerPassword(id: number, passwordHash: string): Pro
     .from("employers")
     .update({ password_hash: passwordHash })
     .eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Update an employer's company branding (website + logo URL), used to enrich the
+ * schema.org hiringOrganization on all their listings. Each field is set
+ * independently; passing null clears it.
+ */
+export async function updateEmployerProfile(
+  id: number,
+  fields: { website?: string | null; logo_url?: string | null }
+): Promise<void> {
+  const patch: Record<string, string | null> = {};
+  if ("website" in fields) patch.website = fields.website ?? null;
+  if ("logo_url" in fields) patch.logo_url = fields.logo_url ?? null;
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await getDb().from("employers").update(patch).eq("id", id);
   if (error) throw error;
 }
 

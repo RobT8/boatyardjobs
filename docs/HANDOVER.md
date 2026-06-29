@@ -83,6 +83,36 @@
 
 ## Session log (newest first)
 
+### 2026-06-29 — Richer JobPosting structured data (Google for Jobs)
+- **Context:** owner is chasing US ranking for marine-trades queries. GSC "Job
+  postings" report showed all items valid but with "improve appearance"
+  warnings: missing `validThrough` (14 — stale crawls from before the 2026-06-25
+  always-emit fix; just needs GSC "Validate Fix"), `baseSalary` (16 — genuinely
+  no salary on those jobs; left as-is, we don't fabricate), and
+  `streetAddress`/`postalCode` (22 each — data gap).
+- **JobPosting description** now renders as real HTML `<p>` paragraphs
+  (`descriptionHtml` in `src/lib/jobs.ts`) instead of one `<p>` blob, so the
+  widget reads properly. Escapes `&<>`.
+- **Extracted `jobPostingJsonLd` into `src/lib/jobs.ts`** (was inlined in the job
+  page) as a pure, unit-tested builder. New tests in
+  `scripts/jobs-jsonld.test.ts` (wired into `npm test`).
+- **New optional structured-data fields, all additive/nullable** (migration
+  `add_jobs_address_and_employer_branding`):
+  - `jobs.street_address`, `jobs.postal_code` → `jobLocation.address`
+    `streetAddress`/`postalCode`. Captured in the post-a-job wizard (step 1).
+  - `employers.website`, `employers.logo_url` → `hiringOrganization.sameAs` /
+    `logo`. Captured in the employer **profile** page ("Company branding" card →
+    `POST /api/employer/profile`, `updateEmployerProfile`). The job page fetches
+    the owning employer to enrich the markup.
+- **Scope note:** only **direct** listings get address/branding — scraped feed
+  jobs have no employer/street/zip, so they stay city/state (still valid markup,
+  no map pin). Address warnings shrink as direct listings grow. The employer
+  website capture also feeds the planned employer-backlink outreach.
+- **Not done (deliberate):** did NOT switch the job page off `force-dynamic` to
+  ISR — it's an app-wide convention and `force-dynamic` is still fully crawlable
+  (SSR'd), so that's a perf discussion, not an SEO fix. Logo is a pasted URL, not
+  an upload (storage upload left as future work).
+
 ### 2026-06-25 — Listing order + Google Indexing API
 - **Fixed listing order: featured → direct/paid → scraped.** New generated
   column `jobs.listing_rank` (0 featured · 1 direct · 2 feed; migration

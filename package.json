@@ -12,7 +12,7 @@
     "warn-expiring": "tsx --env-file-if-exists=.env.local scripts/expiry/warn-jobs.ts",
     "warn-expiring-ads": "tsx --env-file-if-exists=.env.local scripts/expiry/warn-ads.ts",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
-    "test": "tsx scripts/aggregate/parse.test.ts"
+    "test": "tsx scripts/aggregate/parse.test.ts && tsx scripts/jobs-jsonld.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",

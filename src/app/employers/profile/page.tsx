@@ -12,14 +12,19 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ pwok?: string; pwerror?: string }>;
+  searchParams: Promise<{
+    pwok?: string;
+    pwerror?: string;
+    brandok?: string;
+    branderror?: string;
+  }>;
 }
 
 const inputCls =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-navy-600 focus:outline-none";
 
 export default async function EmployerProfilePage({ searchParams }: Props) {
-  const { pwok, pwerror } = await searchParams;
+  const { pwok, pwerror, brandok, branderror } = await searchParams;
   const employer = await getSessionEmployer();
   if (!employer) redirect("/employers/login");
 
@@ -57,6 +62,57 @@ export default async function EmployerProfilePage({ searchParams }: Props) {
             <dd className="text-slate-700">{jobs.length} total · {liveCount} live</dd>
           </div>
         </dl>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-navy-800">Company branding</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Added to your listings&apos; search-engine data, so Google can link your company and
+          show your logo in its jobs results.
+        </p>
+        {brandok && (
+          <p className="mt-3 rounded-md bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+            Branding saved.
+          </p>
+        )}
+        {branderror === "url" && (
+          <p className="mt-3 rounded-md bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
+            Please enter valid web addresses (or leave them blank).
+          </p>
+        )}
+        <form action="/api/employer/profile" method="post" className="mt-3 space-y-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-navy-800">Website</label>
+            <input
+              name="website"
+              type="url"
+              inputMode="url"
+              defaultValue={employer!.website ?? ""}
+              placeholder="https://yourcompany.com"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-navy-800">Logo URL</label>
+            <input
+              name="logo_url"
+              type="url"
+              inputMode="url"
+              defaultValue={employer!.logo_url ?? ""}
+              placeholder="https://yourcompany.com/logo.png"
+              className={inputCls}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              A direct link to your logo image (PNG, JPG or SVG).
+            </p>
+          </div>
+          <button
+            type="submit"
+            className="rounded-md bg-navy-800 px-5 py-2 text-sm font-semibold text-white hover:bg-navy-700"
+          >
+            Save branding
+          </button>
+        </form>
       </div>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
