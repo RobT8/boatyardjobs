@@ -81,6 +81,40 @@
   pricing on the deployed site (couldn't be done from the build env — needs live
   Stripe keys).
 
+### SEO / Google-ranking workstream (started 2026-06-29 — resume here)
+
+Owner is trying to rank in the **US** for marine-trades queries (e.g. "marina
+jobs Florida"). Diagnosis so far: generic geo terms are owned by the
+aggregators (Indeed/ZipRecruiter/Glassdoor/Jooble) — not winnable head-on. The
+niche play is **long-tail role+location pages + Google-for-Jobs widget +
+employer backlinks**. CareerBoat.com is the closest comparator (ranks for its
+brand, not generic terms either). Structured-data groundwork is now done; next:
+
+- **Owner action (GSC):** click **Validate Fix** on the `validThrough` warning
+  in the Job postings report (code already correct since 2026-06-25). Then watch
+  the `streetAddress`/`postalCode` warning counts fall as direct listings gain
+  addresses.
+- **Long-tail landing pages (biggest ranking lever, NOT yet built):**
+  programmatic role×city pages targeting low-competition intent (e.g. "marine
+  diesel technician jobs Fort Lauderdale"). Role×state pages already exist under
+  `/jobs/state/[state]/[role]` and `/salary/...`; extend to city granularity and
+  strengthen internal linking. *Owner agreed this is the next focus.*
+- **Employer backlink campaign:** outreach email drafted (offer 3 months free
+  posting for a careers-page link). Better than a plain link — build an
+  **embeddable "We're Hiring on BoatyardJobs" badge** (HTML snippet + SVG/image)
+  employers paste on their site for a contextual backlink. Not built yet. The
+  new `employers.website` capture supports this.
+- **Salary coverage:** `baseSalary` missing on ~16 listings (no pay data).
+  Don't fabricate — improve scraper salary parsing + nudge employers to add pay;
+  salary lifts both eligibility and click-through in the widget.
+- **Employer logo upload:** currently a pasted `logo_url`. Future: real upload to
+  Supabase storage (mirror the `ad_creatives` image_path/image_url pattern).
+- **Backfill:** existing direct listings have no `street_address`/`postal_code`
+  (only ~1 employer / few direct jobs today) — backfill once addresses exist.
+- **Perf (optional, not SEO):** the whole app uses `force-dynamic`. Fully
+  crawlable but uncached; a site-wide ISR/caching pass is a separate perf
+  discussion, deliberately untouched.
+
 ## Session log (newest first)
 
 ### 2026-06-29 — Richer JobPosting structured data (Google for Jobs)
