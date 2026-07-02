@@ -100,15 +100,24 @@ published/renewed (Stripe webhook), posted by an admin, or made free with a
 100%-off code, give the Vercel runtime its own keyless path. Same service
 account, a second WIF provider that trusts Vercel's OIDC issuer.
 
-**a. Enable Vercel OIDC.** Vercel → Project → **Settings → Security → OIDC
-Federation** → enable. Note your **team slug** (the `oidc.vercel.com/<team>`
-issuer) and that the default token audience is `https://vercel.com/<team>`.
+**a. Enable Vercel OIDC.** Vercel → Project → **Settings → Security → Secure
+Backend Access with OIDC Federation** → **Team** issuer mode. Note the token
+claims it shows:
+- `iss` = `https://oidc.vercel.com/<team-slug>`
+- `aud` = `https://vercel.com/<team-slug>`
+- `sub` = `owner:<team-slug>:project:<project>:environment:production`
 
-**b. Add a Vercel provider to the same pool** (Cloud Shell, reusing the vars from
-step 1):
+The `<team-slug>` is the middle segment of your Vercel URL (e.g.
+`robtait88-4590s-projects`). Match these exactly in the next step.
+
+**b. Add a Vercel provider to the same pool** (Cloud Shell). ⚠️ Run this as the
+Google account that **owns the project** — the same one that created the pool in
+step 1 (check `gcloud config get-value account`), or you'll get a silent
+`PERMISSION_DENIED`. We key the provider off the token's `sub` claim (Vercel does
+**not** expose top-level `owner`/`project` claims, so conditioning on those fails):
 
 ```bash
-export VERCEL_TEAM="your-team-slug"             # from the OIDC settings
+export VERCEL_TEAM="your-team-slug"             # e.g. robtait88-4590s-projects
 export VERCEL_PROJECT="boatyardjobs"            # Vercel project name
 
 gcloud iam workload-identity-pools providers create-oidc vercel \
@@ -116,22 +125,28 @@ gcloud iam workload-identity-pools providers create-oidc vercel \
   --display-name "Vercel" \
   --issuer-uri "https://oidc.vercel.com/${VERCEL_TEAM}" \
   --allowed-audiences "https://vercel.com/${VERCEL_TEAM}" \
-  --attribute-mapping "google.subject=assertion.sub,attribute.project=assertion.project,attribute.owner=assertion.owner" \
-  --attribute-condition "assertion.owner == '${VERCEL_TEAM}'"
+  --attribute-mapping "google.subject=assertion.sub" \
+  --attribute-condition "assertion.sub.startsWith('owner:${VERCEL_TEAM}:project:${VERCEL_PROJECT}:')"
 
-# Let the Vercel project impersonate the same service account
+# Let the Vercel *production* identity impersonate the same service account
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --role roles/iam.workloadIdentityUser \
-  --member "principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.project/${VERCEL_PROJECT}"
+  --member "principal://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/subject/owner:${VERCEL_TEAM}:project:${VERCEL_PROJECT}:environment:production"
 
 echo "GCP_WORKLOAD_IDENTITY_PROVIDER=projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/providers/vercel"
 ```
 
-**c. Set Vercel env vars** (Project → Settings → Environment Variables):
+**c. Set Vercel env vars** (Project → Settings → Environment Variables, all
+environments — then **redeploy**):
 
 - `GCP_WORKLOAD_IDENTITY_PROVIDER` = the `…/providers/**vercel**` value just printed
 - `GCP_INDEXING_SERVICE_ACCOUNT` = the service-account email (same as the cron)
 - `SITE_URL` = `https://boatyardjobs.com`
+
+The code reads the OIDC token via `@vercel/functions` (`getVercelOidcToken()`),
+**not** `process.env.VERCEL_OIDC_TOKEN` — in production Vercel doesn't expose it
+as an env var. Verify with a test post: the runtime log shows
+`Google Indexing: notified live <url>`.
 
 That's it — the code reads `VERCEL_OIDC_TOKEN` at runtime, exchanges it with
 Google STS, impersonates the service account, and notifies. No key. (`VERCEL_OIDC_TOKEN`

@@ -83,6 +83,28 @@
 
 ## Session log (newest first)
 
+### 2026-07-02 — Google Indexing API fully live (cron + Vercel)
+Finished wiring the keyless Indexing API end to end and verified both paths in
+production.
+- **Cron (GitHub Actions):** verified — a run notified Google of 109 live + 37
+  removed jobs; Googlebot is actively crawling from it.
+- **Vercel real-time path:** now working. Two fixes were needed:
+  1. Read the OIDC token via `@vercel/functions` `getVercelOidcToken()` — in
+     production Vercel does **not** expose `process.env.VERCEL_OIDC_TOKEN`
+     (it's request-scoped). Added the `@vercel/functions` dep.
+  2. Recreated the `vercel` WIF provider keyed off the token's `sub` claim
+     (`assertion.sub.startsWith('owner:<team>:project:<project>:')`) with a
+     `principal://…/subject/…:environment:production` binding — Vercel tokens
+     don't carry top-level `owner`/`project` claims, and the first attempt had
+     run under the wrong Google account (silent PERMISSION_DENIED).
+  Verified: `Google Indexing: notified live <url>` in the Vercel runtime log.
+- GCP note: the project `project-f54f50ba-36cd-44b4-9b5` (BoatyardJobs, number
+  470200732686) is owned by the **t80.dev@gmail.com** Google account, not the
+  main `robtait88` account — use t80.dev for any gcloud work. Pool `github` holds
+  two providers: `github-actions` (cron) and `vercel` (runtime); SA is
+  `boatyardjobs-indexing@…`, an Owner of the Search Console property.
+- Setup fully documented in `docs/google-indexing-setup.md`.
+
 ### 2026-06-25 — Listing order + Google Indexing API
 - **Fixed listing order: featured → direct/paid → scraped.** New generated
   column `jobs.listing_rank` (0 featured · 1 direct · 2 feed; migration
