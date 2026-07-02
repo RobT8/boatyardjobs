@@ -209,7 +209,11 @@ export async function notifyIndexing(urls: string[], type: IndexingType): Promis
   return ok;
 }
 
-/** Convenience: notify by slug for a single just-published/updated listing. */
+/** Convenience: notify by slug for a single just-published/updated listing.
+ *  Logs a one-line outcome so the per-event paths (webhook/admin/post-job) are
+ *  observable in the serverless runtime logs. */
 export async function notifyJobLive(slug: string): Promise<void> {
-  await notifyIndexing([jobIndexUrl(slug)], "URL_UPDATED");
+  const ok = await notifyIndexing([jobIndexUrl(slug)], "URL_UPDATED");
+  if (ok) console.log(`Google Indexing: notified live ${jobIndexUrl(slug)}`);
+  else if (isIndexingEnabled()) console.error(`Google Indexing: failed to notify ${slug}`);
 }
