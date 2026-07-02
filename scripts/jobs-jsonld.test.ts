@@ -73,7 +73,7 @@ test("validThrough falls back to posted_at + age cap for feed jobs", () => {
 
 test("description is rendered as HTML paragraphs", () => {
   const ld = jobPostingJsonLd(makeJob());
-  assert.match(String(ld.description), /^<p>.*<\/p>$/s);
+  assert.match(String(ld.description), /^<p>[\s\S]*<\/p>$/);
   // The "Requirements" section heading forces a paragraph break.
   assert.ok(String(ld.description).includes("</p><p>"));
 });
