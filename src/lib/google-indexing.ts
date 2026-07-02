@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { getVercelOidcToken } from "@vercel/functions/oidc";
 import { siteUrl } from "./email";
 
 /**
@@ -16,8 +17,9 @@ import { siteUrl } from "./email";
  *     — the GitHub Actions cron mints it with `google-github-actions/auth`
  *     (Workload Identity Federation, token_format=access_token).
  *  2. **Vercel OIDC (server runtime).** When running on Vercel with OIDC
- *     federation on, the runtime exposes VERCEL_OIDC_TOKEN; we exchange it with
- *     Google STS and impersonate the service account — keyless. Needs:
+ *     federation on, we read the request's OIDC token via `@vercel/functions`
+ *     (`getVercelOidcToken()` — NOT a plain env var in production), exchange it
+ *     with Google STS, and impersonate the service account — keyless. Needs:
  *       GCP_WORKLOAD_IDENTITY_PROVIDER  – full WIF provider resource name
  *       GCP_INDEXING_SERVICE_ACCOUNT    – service-account email to impersonate
  *  3. **Service-account key (fallback).** A JSON key's fields in
@@ -41,9 +43,9 @@ const SCOPE = "https://www.googleapis.com/auth/indexing";
 export function isIndexingEnabled(): boolean {
   return !!(
     process.env.GOOGLE_INDEXING_ACCESS_TOKEN ||
-    (process.env.VERCEL_OIDC_TOKEN &&
-      process.env.GCP_WORKLOAD_IDENTITY_PROVIDER &&
-      process.env.GCP_INDEXING_SERVICE_ACCOUNT) ||
+    // Vercel OIDC: the token is fetched per-request via the SDK, not an env var,
+    // so gate on the WIF config being present.
+    (process.env.GCP_WORKLOAD_IDENTITY_PROVIDER && process.env.GCP_INDEXING_SERVICE_ACCOUNT) ||
     (process.env.GOOGLE_INDEXING_CLIENT_EMAIL && process.env.GOOGLE_INDEXING_PRIVATE_KEY)
   );
 }
@@ -68,16 +70,25 @@ const STS_URL = "https://sts.googleapis.com/v1/token";
 const IAM_CREDENTIALS_URL = "https://iamcredentials.googleapis.com/v1";
 
 /**
- * Keyless auth on Vercel: exchange the runtime's OIDC token (VERCEL_OIDC_TOKEN)
- * for a Google federated token via STS, then impersonate the indexing service
- * account to get an Indexing-API-scoped access token. Returns null when not
- * running under Vercel OIDC (so the caller falls through to other modes).
+ * Keyless auth on Vercel: read the request's OIDC token via `@vercel/functions`
+ * (in production it is NOT a plain env var), exchange it for a Google federated
+ * token via STS, then impersonate the indexing service account to get an
+ * Indexing-API-scoped access token. Returns null when not running under Vercel
+ * OIDC (so the caller falls through to other modes).
  */
 async function getAccessTokenViaVercelOidc(): Promise<{ token: string; expiresAt: number } | null> {
-  const oidc = process.env.VERCEL_OIDC_TOKEN;
   const provider = process.env.GCP_WORKLOAD_IDENTITY_PROVIDER;
   const serviceAccount = process.env.GCP_INDEXING_SERVICE_ACCOUNT;
-  if (!oidc || !provider || !serviceAccount) return null;
+  if (!provider || !serviceAccount) return null;
+
+  let oidc: string;
+  try {
+    // Falls back to the VERCEL_OIDC_TOKEN env var in local dev.
+    oidc = process.env.VERCEL_OIDC_TOKEN || (await getVercelOidcToken());
+  } catch {
+    return null; // not on Vercel / no request-scoped token available
+  }
+  if (!oidc) return null;
 
   // 1. Trade the Vercel OIDC token for a short-lived Google federated token.
   const stsRes = await fetch(STS_URL, {
@@ -215,14 +226,7 @@ export async function notifyIndexing(urls: string[], type: IndexingType): Promis
 export async function notifyJobLive(slug: string): Promise<void> {
   const url = jobIndexUrl(slug);
   if (!isIndexingEnabled()) {
-    // Presence flags only (never the secret values) so we can see which piece
-    // is missing at runtime.
-    console.log(
-      `Google Indexing: SKIPPED (not configured) ` +
-        `[oidc=${!!process.env.VERCEL_OIDC_TOKEN} ` +
-        `provider=${!!process.env.GCP_WORKLOAD_IDENTITY_PROVIDER} ` +
-        `sa=${!!process.env.GCP_INDEXING_SERVICE_ACCOUNT}] ${url}`
-    );
+    console.log(`Google Indexing: SKIPPED (not configured) ${url}`);
     return;
   }
   const ok = await notifyIndexing([url], "URL_UPDATED");
