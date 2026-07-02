@@ -215,7 +215,14 @@ export async function notifyIndexing(urls: string[], type: IndexingType): Promis
 export async function notifyJobLive(slug: string): Promise<void> {
   const url = jobIndexUrl(slug);
   if (!isIndexingEnabled()) {
-    console.log(`Google Indexing: SKIPPED (not configured) ${url}`);
+    // Presence flags only (never the secret values) so we can see which piece
+    // is missing at runtime.
+    console.log(
+      `Google Indexing: SKIPPED (not configured) ` +
+        `[oidc=${!!process.env.VERCEL_OIDC_TOKEN} ` +
+        `provider=${!!process.env.GCP_WORKLOAD_IDENTITY_PROVIDER} ` +
+        `sa=${!!process.env.GCP_INDEXING_SERVICE_ACCOUNT}] ${url}`
+    );
     return;
   }
   const ok = await notifyIndexing([url], "URL_UPDATED");
