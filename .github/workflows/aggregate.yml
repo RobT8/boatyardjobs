@@ -20,7 +20,7 @@ name: Aggregate jobs
 #   GCP_INDEXING_SERVICE_ACCOUNT    service-account email (Owner of the Search
 #                                   Console property; Indexing API enabled)
 # And as a secret:
-#   SITE_URL                        e.g. https://boatyardjobs.com (for the URLs sent)
+#   SITE_URL                        e.g. https://www.boatyardjobs.com (for the URLs sent — must be the canonical www host)
 # See docs/google-indexing-setup.md for the one-time GCP setup.
 
 on:

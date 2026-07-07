@@ -27,7 +27,7 @@ Set these in **Vercel → Project → Settings → Environment Variables**
 | `SUPABASE_PUBLISHABLE_KEY` | no | RLS-gated fallback for local/testing. |
 | `RESEND_API_KEY` | for emails | Enables alert digests, advertiser magic-link, etc. |
 | `ALERTS_FROM_EMAIL` | for emails | e.g. `BoatyardJobs <alerts@boatyardjobs.com>` (verified domain). |
-| `SITE_URL` | yes | e.g. `https://boatyardjobs.com`. Used in emails and sitemap. |
+| `SITE_URL` | yes | e.g. `https://www.boatyardjobs.com`. Used in emails and sitemap. |
 | `ADMIN_PASSWORD` | yes | Admin dashboard login. |
 | `LEADS_NOTIFY_EMAIL` | no | Where "feature your listing" employer leads are emailed. Leads still show in the admin dashboard if unset. |
 | `GOOGLE_SITE_VERIFICATION` | no | Google Search Console token. |
@@ -46,7 +46,7 @@ job-post flow. In **Stripe → Webhooks** (find it via the dashboard **Search**
 bar → type `webhooks`, or open `https://dashboard.stripe.com/test/webhooks`):
 
 1. Open (or **Add**) the endpoint pointing at:
-   `https://boatyardjobs.com/api/stripe/webhook`
+   `https://www.boatyardjobs.com/api/stripe/webhook` (must be the www host — the apex 308-redirects and Stripe does not follow redirects)
 2. Subscribe to **all four** events:
    - `checkout.session.completed` — activates a paid job post **or** ad
    - `invoice.payment_succeeded` — recurring ad renewed → extend

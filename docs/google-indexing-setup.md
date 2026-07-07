@@ -79,7 +79,7 @@ Repo → **Settings → Secrets and variables → Actions**:
   - `GCP_WORKLOAD_IDENTITY_PROVIDER` = the `projects/…/providers/github-actions` value
   - `GCP_INDEXING_SERVICE_ACCOUNT` = the service-account email
 - **Secrets** tab → New repository secret:
-  - `SITE_URL` = `https://boatyardjobs.com`
+  - `SITE_URL` = `https://www.boatyardjobs.com`
 
 ## 4. Test
 
@@ -141,7 +141,7 @@ environments — then **redeploy**):
 
 - `GCP_WORKLOAD_IDENTITY_PROVIDER` = the `…/providers/**vercel**` value just printed
 - `GCP_INDEXING_SERVICE_ACCOUNT` = the service-account email (same as the cron)
-- `SITE_URL` = `https://boatyardjobs.com`
+- `SITE_URL` = `https://www.boatyardjobs.com`
 
 The code reads the OIDC token via `@vercel/functions` (`getVercelOidcToken()`),
 **not** `process.env.VERCEL_OIDC_TOKEN` — in production Vercel doesn't expose it

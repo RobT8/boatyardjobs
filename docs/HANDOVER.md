@@ -117,6 +117,24 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
 
 ## Session log (newest first)
 
+### 2026-07-07 — Canonical host is www: fixed bare-domain defaults
+Discovered `boatyardjobs.com` **308-redirects to `www.boatyardjobs.com`** (www
+is canonical), but every code default for `SITE_URL` was the bare apex — so the
+sitemap, `metadataBase`, robots sitemap pointer, email links and **all Google
+Indexing API pings since 2026-07-02** were emitting URLs that redirect. Google
+treats redirected sitemap/ping URLs as second-class, blunting the indexing
+fast-lane. Flipped all four code defaults (`sitemap.ts`, `robots.ts`,
+`layout.tsx`, `email.ts` `siteUrl()`) and the docs to www.
+- **Owner action still required:** the env var overrides the default — check
+  `SITE_URL` in **Vercel project env** and the **GitHub Actions `SITE_URL`
+  secret**; if either is set to the bare domain, change to
+  `https://www.boatyardjobs.com`.
+- **Also check:** the Stripe dashboard webhook endpoint must be the
+  `www.` URL (Stripe doesn't follow the apex's 308 redirect).
+- GSC note: sitemap resubmitted 2026-07-07 showed "Couldn't fetch" briefly,
+  then went Active on its own — that status is often provisional; Googlebot is
+  not blocked by the CDN.
+
 ### 2026-07-07 — Long-tail role×city landing pages (biggest ranking lever)
 Built the programmatic **role×city** pages the SEO workstream flagged as the top
 priority — ~380 new pages targeting low-competition intent like "marine

@@ -10,7 +10,7 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.SITE_URL ?? "https://boatyardjobs.com"),
+  metadataBase: new URL(process.env.SITE_URL ?? "https://www.boatyardjobs.com"),
   title: {
     default: "BoatyardJobs — Marine Trades Jobs in the US",
     template: "%s | BoatyardJobs",

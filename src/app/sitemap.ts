@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic";
 const ROLE_SLUGS = new Set(ROLE_CATEGORIES.map((r) => r.slug));
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = process.env.SITE_URL ?? "https://boatyardjobs.com";
+  // Canonical host is www — the apex 308s to it, and Google treats redirected
+  // sitemap/ping URLs as second-class. Keep SITE_URL (and this fallback) on www.
+  const base = process.env.SITE_URL ?? "https://www.boatyardjobs.com";
   const [{ jobs }, states, stateRoleCounts, cities, cityRoleCounts, salaryStates] = await Promise.all([
     listJobs({ limit: 1000 }),
     countByState(),

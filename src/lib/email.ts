@@ -37,7 +37,7 @@ export async function sendEmail(opts: {
 
 /** Base URL for links in emails. */
 export function siteUrl(): string {
-  return (process.env.SITE_URL ?? "https://boatyardjobs.com").replace(/\/$/, "");
+  return (process.env.SITE_URL ?? "https://www.boatyardjobs.com").replace(/\/$/, "");
 }
 
 const wrap = (body: string) => `
