@@ -117,6 +117,30 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
 
 ## Session log (newest first)
 
+### 2026-07-07 — Long-tail role×city landing pages (biggest ranking lever)
+Built the programmatic **role×city** pages the SEO workstream flagged as the top
+priority — ~380 new pages targeting low-competition intent like "marine
+technician jobs Jacksonville" / "marine electrician jobs San Diego".
+- **New route** `src/app/jobs/city/[state]/[city]/[role]/page.tsx` — mirrors the
+  existing city and state×role pages: featured-first job list, unique role
+  description + count for on-page substance (not thin), alert-signup CTA.
+- **New helper `countByCityAndCategory()`** in `src/lib/jobs.ts` — folds
+  free-form city spellings on the slug (same canonical name as `countByCity`, so
+  a city reads identically across its city and role×city pages) and counts per
+  (state, city, category). Powers the page resolver, cross-links and sitemap.
+- **Internal linking (the crawl path):** city page "jobs by trade" chips now
+  point at role×city (was state×role); state×role pages gained a "by city"
+  section; role×city pages cross-link sibling roles in the same city and the
+  same role in nearby cities. So Google can traverse board → state → role →
+  city→role.
+- **Sitemap:** emits one URL per (city, role) with live inventory only
+  (`n > 0`, known role slug) — keeps thin/empty combos out of the index.
+- Verified: `tsc`, `eslint`, `npm test` all clean; confirmed 380 real combos in
+  the DB. Live render not driven from here (no local Supabase env; live domain
+  403s the build env) — check on the Vercel deploy.
+- **Next SEO lever:** the "We're Hiring" embeddable backlink badge (authority is
+  the remaining ceiling), and salary-coverage backfill.
+
 ### 2026-07-02 — Google Indexing API fully live (cron + Vercel)
 Finished wiring the keyless Indexing API end to end and verified both paths in
 production.

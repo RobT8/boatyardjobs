@@ -233,6 +233,67 @@ export async function countByCity(): Promise<CityCount[]> {
     .sort((a, b) => b.n - a.n);
 }
 
+export interface CityCategoryCount {
+  /** Canonical display name — the most common stored spelling for the city. */
+  city: string;
+  state: string;
+  category: string;
+  n: number;
+}
+
+/**
+ * Published-job counts per (city, state, category), aggregated in-app from the
+ * live rows. Like {@link countByCity} there's no DB view because city is
+ * free-form upstream text — we fold case/spelling variants on the slug and reuse
+ * the same canonical (most common) spelling as the display name, so a city reads
+ * identically on its city page and its role×city pages. Powers the programmatic
+ * role×city landing pages, their cross-links and the sitemap.
+ */
+export async function countByCityAndCategory(): Promise<CityCategoryCount[]> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select("city, state, category")
+    .eq("status", "published");
+  if (error) throw error;
+
+  // First pass: pick each (state, city) group's canonical spelling from all its
+  // rows, so the display name doesn't depend on which category we're counting.
+  const spellings = new Map<string, Map<string, number>>();
+  // Second pass key: `${state}|${lcCity}|${category}` → count.
+  const counts = new Map<string, { state: string; lcCity: string; category: string; n: number }>();
+
+  for (const row of (data ?? []) as {
+    city: string | null;
+    state: string | null;
+    category: string | null;
+  }[]) {
+    const city = row.city?.trim();
+    const state = row.state?.trim();
+    const category = row.category?.trim();
+    if (!city || !state || !category) continue;
+    const lcCity = city.toLowerCase();
+    const cityKey = `${state}|${lcCity}`;
+    const sp = spellings.get(cityKey) ?? new Map<string, number>();
+    sp.set(city, (sp.get(city) ?? 0) + 1);
+    spellings.set(cityKey, sp);
+
+    const key = `${cityKey}|${category}`;
+    const c = counts.get(key) ?? { state, lcCity, category, n: 0 };
+    c.n++;
+    counts.set(key, c);
+  }
+
+  const canonical = (state: string, lcCity: string): string => {
+    const sp = spellings.get(`${state}|${lcCity}`);
+    if (!sp) return lcCity;
+    return [...sp.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  };
+
+  return [...counts.values()]
+    .map((c) => ({ city: canonical(c.state, c.lcCity), state: c.state, category: c.category, n: c.n }))
+    .sort((a, b) => b.n - a.n);
+}
+
 export async function recordApplyClick(jobId: number): Promise<void> {
   const { error } = await getDb().from("apply_clicks").insert({ job_id: jobId });
   if (error) throw error;

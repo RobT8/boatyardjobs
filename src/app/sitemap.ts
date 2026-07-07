@@ -1,5 +1,11 @@
 import type { MetadataRoute } from "next";
-import { countByCity, countByState, countByStateAndCategory, listJobs } from "@/lib/jobs";
+import {
+  countByCity,
+  countByCityAndCategory,
+  countByState,
+  countByStateAndCategory,
+  listJobs,
+} from "@/lib/jobs";
 import { statesWithSalary } from "@/lib/salary";
 import { citySlug, ROLE_CATEGORIES, stateSlug } from "@/lib/taxonomy";
 
@@ -9,11 +15,12 @@ const ROLE_SLUGS = new Set(ROLE_CATEGORIES.map((r) => r.slug));
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.SITE_URL ?? "https://boatyardjobs.com";
-  const [{ jobs }, states, stateRoleCounts, cities, salaryStates] = await Promise.all([
+  const [{ jobs }, states, stateRoleCounts, cities, cityRoleCounts, salaryStates] = await Promise.all([
     listJobs({ limit: 1000 }),
     countByState(),
     countByStateAndCategory(),
     countByCity(),
+    countByCityAndCategory(),
     // For each role, the states with enough salaried inventory for a credible page.
     Promise.all(
       ROLE_CATEGORIES.map(async (r) => ({
@@ -55,6 +62,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url: `${base}/jobs/state/${stateSlug(c.state)}/${c.category}`,
         changeFrequency: "daily" as const,
         priority: 0.7,
+      })),
+    // role×city landing pages — one per (city, role) with live inventory, the
+    // long-tail set that targets low-competition "<role> jobs <city>" intent.
+    // Filtered to real inventory + known roles to keep thin combinations out.
+    ...cityRoleCounts
+      .filter((c) => c.n > 0 && ROLE_SLUGS.has(c.category))
+      .map((c) => ({
+        url: `${base}/jobs/city/${stateSlug(c.state)}/${citySlug(c.city)}/${c.category}`,
+        changeFrequency: "daily" as const,
+        priority: 0.6,
       })),
     // Salary guides: the hub, one per role, and role×state where the sample is
     // big enough to publish a credible figure.

@@ -3,8 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import JobRow from "@/components/JobRow";
 import AlertSignupForm from "@/components/AlertSignupForm";
-import { countByStateAndCategory, fairlyRotate, getFeaturedJobs, listJobs } from "@/lib/jobs";
-import { ROLE_CATEGORIES, roleFromSlug, stateFromSlug } from "@/lib/taxonomy";
+import {
+  countByCityAndCategory,
+  countByStateAndCategory,
+  fairlyRotate,
+  getFeaturedJobs,
+  listJobs,
+} from "@/lib/jobs";
+import { citySlug, ROLE_CATEGORIES, roleFromSlug, stateFromSlug } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +35,11 @@ export default async function StateRoleJobsPage({ params }: Props) {
   const roleMatch = roleFromSlug(role);
   if (!stateMatch || !roleMatch) notFound();
 
-  const [featuredRaw, { jobs, total }, counts] = await Promise.all([
+  const [featuredRaw, { jobs, total }, counts, cityRoleCounts] = await Promise.all([
     getFeaturedJobs({ state: stateMatch.code, category: roleMatch.slug }),
     listJobs({ state: stateMatch.code, category: roleMatch.slug, excludeFeatured: true, limit: 100 }),
     countByStateAndCategory(),
+    countByCityAndCategory(),
   ]);
   const featured = fairlyRotate(featuredRaw);
 
@@ -43,6 +50,13 @@ export default async function StateRoleJobsPage({ params }: Props) {
       r.slug !== roleMatch.slug &&
       counts.some((c) => c.state === stateMatch.code && c.category === r.slug && c.n > 0)
   );
+
+  // Cities in this state hiring for this role, busiest first → role×city links
+  // that seed the long-tail landing pages and let Google crawl down into them.
+  const citiesForRole = cityRoleCounts
+    .filter((c) => c.state === stateMatch.code && c.category === roleMatch.slug)
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 12);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -83,6 +97,25 @@ export default async function StateRoleJobsPage({ params }: Props) {
           No open {roleMatch.label.toLowerCase()} jobs in {stateMatch.name} right now — set an
           alert below and be first to know.
         </p>
+      )}
+
+      {citiesForRole.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-sm font-semibold text-navy-800">
+            {roleMatch.label} jobs by city in {stateMatch.name}
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {citiesForRole.map((c) => (
+              <Link
+                key={c.city}
+                href={`/jobs/city/${state}/${citySlug(c.city)}/${roleMatch.slug}`}
+                className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-200"
+              >
+                {c.city} <span className="text-slate-400">({c.n})</span>
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
 
       {siblingRoles.length > 0 && (

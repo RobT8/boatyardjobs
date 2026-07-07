@@ -113,7 +113,7 @@ export default async function CityJobsPage({ params }: Props) {
             {rolesHere.map(({ role, n }) => (
               <Link
                 key={role.slug}
-                href={`/jobs/state/${state}/${role.slug}`}
+                href={`/jobs/city/${state}/${citySlug(match.city)}/${role.slug}`}
                 className="rounded-full bg-navy-50 px-3 py-1 text-sm font-medium text-navy-700 hover:bg-navy-100"
               >
                 {role.label} <span className="text-slate-400">({n})</span>
