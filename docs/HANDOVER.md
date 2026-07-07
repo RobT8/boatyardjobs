@@ -125,12 +125,12 @@ Indexing API pings since 2026-07-02** were emitting URLs that redirect. Google
 treats redirected sitemap/ping URLs as second-class, blunting the indexing
 fast-lane. Flipped all four code defaults (`sitemap.ts`, `robots.ts`,
 `layout.tsx`, `email.ts` `siteUrl()`) and the docs to www.
-- **Owner action still required:** the env var overrides the default — check
-  `SITE_URL` in **Vercel project env** and the **GitHub Actions `SITE_URL`
-  secret**; if either is set to the bare domain, change to
-  `https://www.boatyardjobs.com`.
-- **Also check:** the Stripe dashboard webhook endpoint must be the
-  `www.` URL (Stripe doesn't follow the apex's 308 redirect).
+- **Owner confirmed same day:** `SITE_URL` in Vercel and the GitHub Actions
+  secret are now the www value (env overrides the code default, so both
+  mattered).
+- **Still open (owner):** confirm the Stripe dashboard webhook endpoint is the
+  `www.` URL — Stripe doesn't follow the apex's 308 redirect, so a bare-domain
+  endpoint would silently break paid-job publishing.
 - GSC note: sitemap resubmitted 2026-07-07 showed "Couldn't fetch" briefly,
   then went Active on its own — that status is often provisional; Googlebot is
   not blocked by the CDN.
