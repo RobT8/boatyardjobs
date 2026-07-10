@@ -99,11 +99,11 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
   diesel technician jobs Fort Lauderdale"). Role×state pages already exist under
   `/jobs/state/[state]/[role]` and `/salary/...`; extend to city granularity and
   strengthen internal linking. *Owner agreed this is the next focus.*
-- **Employer backlink campaign:** outreach email drafted (offer 3 months free
-  posting for a careers-page link). Better than a plain link — build an
-  **embeddable "We're Hiring on BoatyardJobs" badge** (HTML snippet + SVG/image)
-  employers paste on their site for a contextual backlink. Not built yet. The
-  new `employers.website` capture supports this.
+- **Employer backlink campaign:** the embeddable **"We're Hiring" badge is now
+  built** (2026-07-10) — SVG endpoint + copy-paste embed on the employer profile,
+  linking a public `/employers/<id>` page. Remaining work is *outreach*: get
+  employers to actually place it (the drafted email offering 3 months free posting
+  for a careers-page link is the hook).
 - **Salary coverage:** scraper now also reads pay from description prose when
   structured `baseSalary` is absent (`parseSalaryFromText`, 2026-07-10) — coverage
   improves as the daily cron re-parses feeds. Remaining gap is listings that state
@@ -117,6 +117,31 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
   discussion, deliberately untouched.
 
 ## Session log (newest first)
+
+### 2026-07-10 — "We're Hiring" embeddable backlink badge
+Built the badge the SEO workstream flagged as the remaining authority lever — an
+embeddable widget employers paste on their careers page for a contextual backlink.
+- **Badge SVG** (`src/app/api/badge/[id]/route.ts`): `GET /api/badge/<employerId>`
+  returns a self-contained, brand-styled SVG ("WE'RE HIRING", company name, live
+  open-roles count). No external fonts/images; XML-escaped; edge-cached
+  (`s-maxage=3600`, count only shifts daily). 404s for unknown/invalid ids.
+- **Public employer page** (`src/app/employers/[id]/page.tsx`): the badge's
+  backlink **target** — "Jobs at {Company}", lists their published listings, links
+  the company site (`rel=nofollow`) and back into the board. Indexable; 404s when
+  the employer has no live jobs (keeps thin pages out). Sibling to the static
+  `/employers/*` routes — static wins, `[id]` catches numeric ids.
+- **Embed UI** (`src/components/BadgeEmbed.tsx` on the employer **profile** page):
+  live badge preview + copy-paste `<a><img></a>` snippet (real crawlable anchor,
+  UTM-tagged) + one-click copy.
+- **Data helpers** (`src/lib/employers.ts`): `countEmployerPublishedJobs`,
+  `listEmployerPublishedJobs`, `listEmployerIdsWithPublishedJobs`.
+- **Sitemap**: emits `/employers/<id>` for employers with live listings, so the
+  backlink targets get indexed.
+- Verified: `tsc`, `eslint`, `npm test`, and a full `next build` all clean;
+  rendered the SVG headless to eyeball the design. Live check still owed on Vercel.
+- **Next SEO lever:** salary-coverage backfill is now partly automated (prose
+  parser, below); remaining levers are employer outreach to actually *place* the
+  badge, and address/logo backfill on direct listings.
 
 ### 2026-07-10 — Deepened role×city pages + free-text salary parsing
 Two SEO levers from the workstream above: made the role×city landing pages less

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { listEmployerIdsWithPublishedJobs } from "@/lib/employers";
 import {
   countByCity,
   countByCityAndCategory,
@@ -17,20 +18,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Canonical host is www — the apex 308s to it, and Google treats redirected
   // sitemap/ping URLs as second-class. Keep SITE_URL (and this fallback) on www.
   const base = process.env.SITE_URL ?? "https://www.boatyardjobs.com";
-  const [{ jobs }, states, stateRoleCounts, cities, cityRoleCounts, salaryStates] = await Promise.all([
-    listJobs({ limit: 1000 }),
-    countByState(),
-    countByStateAndCategory(),
-    countByCity(),
-    countByCityAndCategory(),
-    // For each role, the states with enough salaried inventory for a credible page.
-    Promise.all(
-      ROLE_CATEGORIES.map(async (r) => ({
-        role: r.slug,
-        states: await statesWithSalary(r.slug),
-      }))
-    ),
-  ]);
+  const [{ jobs }, states, stateRoleCounts, cities, cityRoleCounts, salaryStates, employerIds] =
+    await Promise.all([
+      listJobs({ limit: 1000 }),
+      countByState(),
+      countByStateAndCategory(),
+      countByCity(),
+      countByCityAndCategory(),
+      // For each role, the states with enough salaried inventory for a credible page.
+      Promise.all(
+        ROLE_CATEGORIES.map(async (r) => ({
+          role: r.slug,
+          states: await statesWithSalary(r.slug),
+        }))
+      ),
+      listEmployerIdsWithPublishedJobs(),
+    ]);
 
   return [
     { url: base, changeFrequency: "daily", priority: 1 },
@@ -95,6 +98,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: job.posted_at,
       changeFrequency: "weekly" as const,
       priority: 0.7,
+    })),
+    // Public employer pages — the "We're Hiring" badge backlink targets. Only
+    // those with live listings (the page 404s otherwise).
+    ...employerIds.map((id) => ({
+      url: `${base}/employers/${id}`,
+      changeFrequency: "daily" as const,
+      priority: 0.5,
     })),
   ];
 }

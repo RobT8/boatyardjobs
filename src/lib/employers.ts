@@ -106,6 +106,45 @@ export async function setEmployerStripeCustomer(id: number, customerId: string):
   if (error) throw error;
 }
 
+/** Count of an employer's currently-published listings. Cheap head-count query,
+ *  used by the embeddable "We're Hiring" badge. */
+export async function countEmployerPublishedJobs(employerId: number): Promise<number> {
+  const { count, error } = await getDb()
+    .from("jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("employer_id", employerId)
+    .eq("status", "published");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** An employer's currently-published listings, newest first — for their public
+ *  profile page (the badge's backlink target). */
+export async function listEmployerPublishedJobs(employerId: number): Promise<Job[]> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select("*")
+    .eq("employer_id", employerId)
+    .eq("status", "published")
+    .order("posted_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(normalizeJob);
+}
+
+/** Employer ids that have at least one published listing — drives the sitemap so
+ *  the public employer pages (badge backlink targets) get indexed. */
+export async function listEmployerIdsWithPublishedJobs(): Promise<number[]> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select("employer_id")
+    .eq("status", "published")
+    .not("employer_id", "is", null);
+  if (error) throw error;
+  const ids = new Set<number>();
+  for (const r of data ?? []) if (r.employer_id != null) ids.add(r.employer_id as number);
+  return [...ids];
+}
+
 export interface EmployerJob {
   job: Job;
   views: number;

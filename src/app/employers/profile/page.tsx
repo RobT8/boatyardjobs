@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import BadgeEmbed from "@/components/BadgeEmbed";
 import { getSessionEmployer } from "@/lib/employer-auth";
 import { listEmployerJobs } from "@/lib/employers";
+
+const SITE_URL = (process.env.SITE_URL ?? "https://www.boatyardjobs.com").replace(/\/$/, "");
 
 export const metadata: Metadata = {
   title: "Employer profile",
@@ -113,6 +116,17 @@ export default async function EmployerProfilePage({ searchParams }: Props) {
             Save branding
           </button>
         </form>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-navy-800">&ldquo;We&apos;re Hiring&rdquo; badge</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          A free, embeddable badge for your own website — a contextual backlink that lifts your
+          BoatyardJobs listings in search.
+        </p>
+        <div className="mt-3">
+          <BadgeEmbed employerId={employer!.id} siteUrl={SITE_URL} />
+        </div>
       </div>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
