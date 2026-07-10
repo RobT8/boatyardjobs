@@ -112,6 +112,14 @@ interface SalaryParts {
  */
 export const MAX_PLAUSIBLE_HOURLY = 200;
 
+/**
+ * Plausible annual-salary band. Used to reject free-text figures that are
+ * clearly not wages (a "$5,000,000 portfolio", a "$500 tool allowance") when we
+ * fall back to reading pay out of the description prose.
+ */
+export const MIN_PLAUSIBLE_ANNUAL = 10_000;
+export const MAX_PLAUSIBLE_ANNUAL = 1_000_000;
+
 /** Reclassify an implausibly-low "annual" figure as hourly. No-op otherwise. */
 export function sanitizeSalaryUnit(parts: SalaryParts): SalaryParts {
   if (parts.salary_unit === "HOUR") return parts;
@@ -150,6 +158,74 @@ export function parseSalary(baseSalary: any): SalaryParts {
       ? { salary_min: min, salary_max: max, salary_unit: "HOUR" }
       : { salary_min: scale(min), salary_max: scale(max), salary_unit: "YEAR" }
   );
+}
+
+/**
+ * Best-effort salary from free text. Many employer pages omit structured
+ * `baseSalary` but state pay in the description prose ("$28–$34/hr", "$65,000 to
+ * $85,000 per year", "$90k DOE"). Reading it lifts the share of listings with
+ * pay, which improves Google-for-Jobs eligibility and click-through.
+ *
+ * Deliberately conservative to avoid fabricating pay: a figure is only accepted
+ * when the text names a pay period (hour/week/month/year) or uses a "k" salary
+ * suffix, and figures outside the plausible wage bands are rejected — so
+ * bonuses, prices and boat lengths aren't misread as salary. Returns the first
+ * qualifying mention.
+ */
+export function parseSalaryFromText(text: string): SalaryParts {
+  const empty: SalaryParts = { salary_min: null, salary_max: null, salary_unit: "YEAR" };
+  if (!text) return empty;
+
+  // A `$` amount with optional thousands separators / decimals and optional "k".
+  const amt = String.raw`\$\s*(\d{1,3}(?:,\d{3})+|\d+(?:\.\d{1,2})?)\s*(k)?`;
+  // Optionally a second amount after a dash or "to" makes it a range. "and" is
+  // intentionally excluded so unrelated figures ("$50,000 and a $2,000 bonus")
+  // aren't fused into one bogus range.
+  const re = new RegExp(`${amt}(?:\\s*(?:-|–|—|to)\\s*${amt})?`, "gi");
+
+  const toNum = (digits: string, k?: string): number | null => {
+    const n = parseFloat(digits.replace(/,/g, ""));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return k ? n * 1000 : n;
+  };
+
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const first = toNum(m[1], m[2]);
+    if (first == null) continue;
+    const second = m[3] != null ? toNum(m[3], m[4]) : null;
+    const hasK = Boolean(m[2] || m[4]);
+
+    // The pay period usually trails the figure ("$28/hr", "$70,000 a year").
+    const tail = text.slice(m.index, m.index + m[0].length + 24).toLowerCase();
+    let period: "HOUR" | "WEEK" | "MONTH" | "YEAR" | null = null;
+    if (/hour|hourly|\bhr\b|\/hr/.test(tail)) period = "HOUR";
+    else if (/week|weekly|\/wk/.test(tail)) period = "WEEK";
+    else if (/month|monthly|\/mo/.test(tail)) period = "MONTH";
+    else if (/year|yearly|annual|annum|\/yr|salary/.test(tail)) period = "YEAR";
+    else if (hasK) period = "YEAR"; // "$90k" is annual by convention.
+    if (!period) continue; // No stated period → too risky to guess. Skip.
+
+    const factor: Record<string, number> = { WEEK: 52, MONTH: 12 };
+    const mult = factor[period] ?? 1;
+    const scale = (n: number) => Math.round(n * mult);
+    const unit: "YEAR" | "HOUR" = period === "HOUR" ? "HOUR" : "YEAR";
+    const lo = scale(Math.min(first, second ?? first));
+    const hi = scale(Math.max(first, second ?? first));
+
+    const parts = sanitizeSalaryUnit({ salary_min: lo, salary_max: hi, salary_unit: unit });
+
+    // Reject implausible magnitudes so stray large/small dollar amounts don't
+    // land in a pay column.
+    const ref = parts.salary_max ?? parts.salary_min!;
+    const ok =
+      parts.salary_unit === "HOUR"
+        ? ref <= MAX_PLAUSIBLE_HOURLY
+        : ref >= MIN_PLAUSIBLE_ANNUAL && ref <= MAX_PLAUSIBLE_ANNUAL;
+    if (!ok) continue;
+    return parts;
+  }
+  return empty;
 }
 
 function isUsAddress(address: any): boolean {
@@ -202,6 +278,13 @@ export function jobPostingToInput(posting: any, opts: ToInputOptions): NewJobInp
   const haystack = [title, description];
   const datePosted = firstString(posting?.datePosted);
 
+  // Prefer structured baseSalary; fall back to pay stated in the prose so
+  // listings without a machine-readable salary still carry one.
+  let salary = parseSalary(posting?.baseSalary);
+  if (salary.salary_min == null && salary.salary_max == null) {
+    salary = parseSalaryFromText(`${title} ${description}`);
+  }
+
   return {
     title,
     company,
@@ -214,7 +297,7 @@ export function jobPostingToInput(posting: any, opts: ToInputOptions): NewJobInp
     source: opts.source,
     source_url: source_url || null,
     posted_at: datePosted ? new Date(datePosted).toISOString() : new Date().toISOString(),
-    ...parseSalary(posting?.baseSalary),
+    ...salary,
   };
 }
 

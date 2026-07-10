@@ -104,9 +104,10 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
   **embeddable "We're Hiring on BoatyardJobs" badge** (HTML snippet + SVG/image)
   employers paste on their site for a contextual backlink. Not built yet. The
   new `employers.website` capture supports this.
-- **Salary coverage:** `baseSalary` missing on ~16 listings (no pay data).
-  Don't fabricate — improve scraper salary parsing + nudge employers to add pay;
-  salary lifts both eligibility and click-through in the widget.
+- **Salary coverage:** scraper now also reads pay from description prose when
+  structured `baseSalary` is absent (`parseSalaryFromText`, 2026-07-10) — coverage
+  improves as the daily cron re-parses feeds. Remaining gap is listings that state
+  no pay at all; nudge employers to add it (don't fabricate).
 - **Employer logo upload:** currently a pasted `logo_url`. Future: real upload to
   Supabase storage (mirror the `ad_creatives` image_path/image_url pattern).
 - **Backfill:** existing direct listings have no `street_address`/`postal_code`
@@ -116,6 +117,35 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
   discussion, deliberately untouched.
 
 ## Session log (newest first)
+
+### 2026-07-10 — Deepened role×city pages + free-text salary parsing
+Two SEO levers from the workstream above: made the role×city landing pages less
+thin, and lifted salary coverage on scraped listings.
+
+- **Free-text salary parser** (`scripts/aggregate/parse.ts`): new
+  `parseSalaryFromText()` reads pay out of the description prose ("$28–$34/hr",
+  "$65,000 to $85,000 per year", "$90k DOE") as a **fallback** when a posting has
+  no structured `baseSalary`. `jobPostingToInput` now tries structured first,
+  then prose. Deliberately conservative — only accepts a figure when the text
+  names a pay period (hour/week/month/year) or uses a "k" suffix, annualizes
+  week/month, reuses `sanitizeSalaryUnit` for the hourly-magnitude guard, and
+  rejects magnitudes outside plausible wage bands (`MIN/MAX_PLAUSIBLE_ANNUAL`) so
+  bonuses/prices aren't misread as pay. 9 new unit tests in `parse.test.ts`.
+  *More listings with pay = better Google-for-Jobs eligibility + click-through.*
+  The gains land as the daily aggregate cron re-parses feeds.
+- **Deepened role×city pages** (`src/app/jobs/city/[state]/[city]/[role]/page.tsx`):
+  - **Live pay band section** — city-scoped stats from the on-page listings
+    (`statsFromRows`), falling back to the state-wide range when the city sample
+    is < `MIN_SAMPLE_FOR_STATS`, rendered with the shared `SalaryFigures` card and
+    a link into `/salary/[role]/[state]`. Real, unique content per page.
+  - **`BreadcrumbList` JSON-LD** for the Jobs→State→City→Role trail (escaped via a
+    local `safeJsonLd` since city names are scraped) — richer SERP + explicit
+    crawl path.
+  - **Meta description** now appends the state median pay for CTR (mirrors the
+    salary page pattern).
+- Verified: `tsc`, `eslint`, `npm test` (37 parser assertions incl. the new
+  salary cases) all clean. Live render not driven from here (no local Supabase
+  env) — check on the Vercel deploy.
 
 ### 2026-07-07 — Canonical host is www: fixed bare-domain defaults
 Discovered `boatyardjobs.com` **308-redirects to `www.boatyardjobs.com`** (www

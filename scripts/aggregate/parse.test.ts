@@ -3,6 +3,7 @@ import {
   extractJobPostings,
   htmlToText,
   parseSalary,
+  parseSalaryFromText,
   sanitizeSalaryUnit,
   jobPostingToInput,
   parseJobsFromHtml,
@@ -92,6 +93,89 @@ test("sanitizeSalaryUnit relabels low yearly figures, leaves real salaries alone
     sanitizeSalaryUnit({ salary_min: 45000, salary_max: 70000, salary_unit: "YEAR" }),
     { salary_min: 45000, salary_max: 70000, salary_unit: "YEAR" }
   );
+});
+
+test("parseSalaryFromText reads an hourly range from prose", () => {
+  const s = parseSalaryFromText("Compensation is $28 to $34 per hour depending on experience.");
+  assert.deepEqual(s, { salary_min: 28, salary_max: 34, salary_unit: "HOUR" });
+});
+
+test("parseSalaryFromText reads an annual range with commas", () => {
+  const s = parseSalaryFromText("We offer $65,000 - $85,000 per year plus benefits.");
+  assert.deepEqual(s, { salary_min: 65000, salary_max: 85000, salary_unit: "YEAR" });
+});
+
+test("parseSalaryFromText expands a k suffix to annual", () => {
+  const s = parseSalaryFromText("Salary $90k DOE.");
+  assert.deepEqual(s, { salary_min: 90000, salary_max: 90000, salary_unit: "YEAR" });
+});
+
+test("parseSalaryFromText annualizes weekly and monthly pay", () => {
+  assert.deepEqual(parseSalaryFromText("$1,200 per week"), {
+    salary_min: 62400,
+    salary_max: 62400,
+    salary_unit: "YEAR",
+  });
+  assert.deepEqual(parseSalaryFromText("$5,000 a month"), {
+    salary_min: 60000,
+    salary_max: 60000,
+    salary_unit: "YEAR",
+  });
+});
+
+test("parseSalaryFromText demotes an hourly-magnitude figure labelled per year", () => {
+  // "$30/year" is really an hourly rate; the magnitude guard fixes the unit.
+  const s = parseSalaryFromText("Pay is $30 per year.");
+  assert.deepEqual(s, { salary_min: 30, salary_max: 30, salary_unit: "HOUR" });
+});
+
+test("parseSalaryFromText ignores figures with no stated pay period", () => {
+  assert.deepEqual(parseSalaryFromText("Sign-on bonus of $2,000 for new hires."), {
+    salary_min: null,
+    salary_max: null,
+    salary_unit: "YEAR",
+  });
+  assert.deepEqual(parseSalaryFromText("Rates from $25-$35 (call for a quote)."), {
+    salary_min: null,
+    salary_max: null,
+    salary_unit: "YEAR",
+  });
+});
+
+test("parseSalaryFromText rejects implausible magnitudes", () => {
+  assert.deepEqual(parseSalaryFromText("Manage a $5,000,000 annual budget."), {
+    salary_min: null,
+    salary_max: null,
+    salary_unit: "YEAR",
+  });
+});
+
+test("jobPostingToInput falls back to salary in the description", () => {
+  const posting = {
+    "@type": "JobPosting",
+    title: "Marine Electrician",
+    description: "Install and troubleshoot 12V systems. Pay is $32 to $40 per hour, full time.",
+    hiringOrganization: { name: "Bay Electronics" },
+    jobLocation: { address: { addressLocality: "Annapolis", addressRegion: "MD" } },
+  };
+  const job = jobPostingToInput(posting, { source: "x" });
+  assert.equal(job!.salary_min, 32);
+  assert.equal(job!.salary_max, 40);
+  assert.equal(job!.salary_unit, "HOUR");
+});
+
+test("jobPostingToInput prefers structured baseSalary over prose", () => {
+  const posting = {
+    "@type": "JobPosting",
+    title: "Rigger",
+    description: "Great pay, up to $90k for the right person, standing rigging on yachts.",
+    hiringOrganization: { name: "Rig Co" },
+    jobLocation: { address: { addressLocality: "Newport", addressRegion: "RI" } },
+    baseSalary: { value: { minValue: 55000, maxValue: 70000, unitText: "YEAR" } },
+  };
+  const job = jobPostingToInput(posting, { source: "x" });
+  assert.equal(job!.salary_min, 55000);
+  assert.equal(job!.salary_max, 70000);
 });
 
 test("jobPostingToInput maps a full posting", () => {
