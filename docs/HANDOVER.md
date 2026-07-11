@@ -118,6 +118,37 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
 
 ## Session log (newest first)
 
+### 2026-07-10 — Badge tracking + two-tier employer profiles
+Turned the badge into an enforceable deal ("6 months free advertising for keeping
+the badge up") and split employer profiles into free/paid tiers.
+- **Migration** `add_badge_placements_and_employer_profile` (applied, not in repo):
+  `employers.enhanced_profile` (bool, admin flag) + `employers.about` (bio);
+  new `badge_placements` table (employer_id, page_url, source declared|detected,
+  present, last_status, first/last_seen, last_checked, notified_missing_at).
+- **Badge styles** picker also shipped this session (see `src/lib/badge.ts`;
+  `?style=` on the route).
+- **Tracking two ways** (`src/lib/badge-placements.ts`): passive — the badge route
+  logs the cross-origin `Referer` (auto-discovers where it's embedded); active —
+  weekly cron `scripts/badge/verify.ts` fetches each **declared** page and checks
+  for the badge markup (`htmlContainsBadge`, unit-tested). Transient errors
+  (timeout/5xx) are recorded but never flip a badge to "missing" or alert (avoids
+  false positives). Employers submit their page URL on the profile
+  (`/api/employer/badge-url` → `setDeclaredPlacement`).
+- **Notification** (owner decides): when a declared badge goes missing, emails
+  `LEADS_NOTIFY_EMAIL` once per disappearance (`badgeMissingHtml`), re-arms on
+  recovery. **New workflow** `badge-verify.yml` (Mondays 08:00 UTC) — needs the
+  RESEND/ALERTS_FROM/**LEADS_NOTIFY_EMAIL**/SITE_URL secrets or it records status
+  only. Admin **"Badge deals" panel** (`/admin#badge-deals`) is the always-on
+  channel: status light per employer + the enhanced-profile toggle
+  (`/api/admin/employers`).
+- **Two-tier public employer page** (`/employers/[id]`): simple (default) vs
+  detailed (logo, bio, website hero) gated on `enhanced_profile`. Job pages now
+  **link the company name** to it (discovery + crawl path).
+- **Owner setup TODO:** add `LEADS_NOTIFY_EMAIL` (+ existing RESEND secrets) to the
+  `badge-verify` workflow so the "badge missing" email actually sends.
+- Verified: `tsc`, `eslint`, `npm test` (46 assertions incl. new badge suite), full
+  `next build` all clean. Live render not driven here (no local Supabase).
+
 ### 2026-07-10 — "We're Hiring" embeddable backlink badge
 Built the badge the SEO workstream flagged as the remaining authority lever — an
 embeddable widget employers paste on their careers page for a contextual backlink.

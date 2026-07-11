@@ -14,6 +14,10 @@ export interface Employer {
   website: string | null;
   /** Company logo URL → hiringOrganization.logo. */
   logo_url: string | null;
+  /** Admin-controlled: renders the detailed public profile when true. */
+  enhanced_profile: boolean;
+  /** Company bio shown on the detailed profile page. */
+  about: string | null;
 }
 
 export async function createEmployerWithPassword(
@@ -88,14 +92,34 @@ export async function setEmployerPassword(id: number, passwordHash: string): Pro
  */
 export async function updateEmployerProfile(
   id: number,
-  fields: { website?: string | null; logo_url?: string | null }
+  fields: { website?: string | null; logo_url?: string | null; about?: string | null }
 ): Promise<void> {
   const patch: Record<string, string | null> = {};
   if ("website" in fields) patch.website = fields.website ?? null;
   if ("logo_url" in fields) patch.logo_url = fields.logo_url ?? null;
+  if ("about" in fields) patch.about = fields.about ?? null;
   if (Object.keys(patch).length === 0) return;
   const { error } = await getDb().from("employers").update(patch).eq("id", id);
   if (error) throw error;
+}
+
+/** Admin toggle: grant/revoke the detailed public profile for an employer. */
+export async function setEnhancedProfile(id: number, enhanced: boolean): Promise<void> {
+  const { error } = await getDb()
+    .from("employers")
+    .update({ enhanced_profile: enhanced })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Every employer, newest first — for the admin badge-deals / profile panel. */
+export async function listAllEmployers(): Promise<Employer[]> {
+  const { data, error } = await getDb()
+    .from("employers")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Employer[];
 }
 
 export async function setEmployerStripeCustomer(id: number, customerId: string): Promise<void> {

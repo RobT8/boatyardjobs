@@ -40,6 +40,38 @@ export function siteUrl(): string {
   return (process.env.SITE_URL ?? "https://www.boatyardjobs.com").replace(/\/$/, "");
 }
 
+/** Where internal/admin notifications go (leads, badge alerts). Null = unset. */
+export function adminNotifyEmail(): string | null {
+  return process.env.LEADS_NOTIFY_EMAIL ?? process.env.ADMIN_EMAIL ?? null;
+}
+
+/** Internal alert: an employer's declared "We're Hiring" badge has gone missing. */
+export function badgeMissingHtml(opts: {
+  company: string;
+  pageUrl: string;
+  employerId: number;
+  status: string;
+}): string {
+  const admin = `${siteUrl()}/admin#badge-deals`;
+  return wrap(`
+    <h1 style="font-size:18px;margin:0 0 12px">Badge missing — ${opts.company}</h1>
+    <p style="margin:0 0 12px;color:#334155">
+      The "We're Hiring" badge no longer appears on the page this employer submitted,
+      so their side of the free-advertising deal may have lapsed.
+    </p>
+    <p style="margin:0 0 6px"><strong>Company:</strong> ${opts.company}</p>
+    <p style="margin:0 0 6px"><strong>Submitted page:</strong> <a href="${opts.pageUrl}">${opts.pageUrl}</a></p>
+    <p style="margin:0 0 16px"><strong>Last check:</strong> ${opts.status}</p>
+    <p style="margin:0 0 20px">
+      <a href="${admin}" style="background:#c79a3b;color:#1a1407;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:6px;display:inline-block">
+        Review in admin
+      </a>
+    </p>
+    <p style="margin:0;font-size:12px;color:#94a3b8">
+      You'll only get one email per disappearance. If the badge reappears the alert re-arms.
+    </p>`);
+}
+
 const wrap = (body: string) => `
   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#0f172a">
     <div style="background:#0f2942;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0;font-weight:700;font-size:18px">

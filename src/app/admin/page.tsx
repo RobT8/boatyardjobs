@@ -5,6 +5,8 @@ import { getAdminStats, type Bucket } from "@/lib/admin";
 import { listAlertSubscribers, type AlertFilter } from "@/lib/alerts";
 import { listEmployerLeads } from "@/lib/leads";
 import { listDiscountCodes } from "@/lib/discounts";
+import { listAllEmployers } from "@/lib/employers";
+import { listAllPlacements, type PlacementWithCompany } from "@/lib/badge-placements";
 import {
   getChannel,
   listActiveAds,
@@ -81,22 +83,32 @@ interface Props {
     discount_added?: string;
     discount_error?: string;
     discount_toggled?: string;
+    employer_updated?: string;
   }>;
 }
 
 export default async function AdminPage({ searchParams }: Props) {
   if (!(await isAdmin())) redirect("/admin/login");
-  const { posted, job_error, discount_added, discount_error, discount_toggled } =
+  const { posted, job_error, discount_added, discount_error, discount_toggled, employer_updated } =
     await searchParams;
-  const [s, subscribers, leads, pendingAds, activeAds, discounts] = await Promise.all([
-    getAdminStats(),
-    listAlertSubscribers(),
-    listEmployerLeads(),
-    listPendingCreatives(),
-    listActiveAds(),
-    listDiscountCodes(),
-  ]);
+  const [s, subscribers, leads, pendingAds, activeAds, discounts, employers, placements] =
+    await Promise.all([
+      getAdminStats(),
+      listAlertSubscribers(),
+      listEmployerLeads(),
+      listPendingCreatives(),
+      listActiveAds(),
+      listDiscountCodes(),
+      listAllEmployers(),
+      listAllPlacements(),
+    ]);
   const mrr = mrrCents(activeAds);
+
+  // Group declared placements by employer for the badge-deals panel.
+  const declaredByEmployer = new Map<number, PlacementWithCompany>();
+  for (const p of placements) {
+    if (p.source === "declared") declaredByEmployer.set(p.employer_id, p);
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -461,6 +473,99 @@ export default async function AdminPage({ searchParams }: Props) {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Badge deals & employer profiles */}
+      <h2 id="badge-deals" className="mt-10 text-lg font-bold text-navy-800">
+        Badge deals &amp; employer profiles ({employers.length})
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Verify the &ldquo;We&apos;re Hiring&rdquo; badge is still on each deal employer&apos;s
+        submitted page, and grant the enhanced (detailed) public profile. Checked weekly; you&apos;re
+        emailed if a badge goes missing.
+      </p>
+      {employer_updated && (
+        <p className="mt-3 rounded-md bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+          Employer profile updated.
+        </p>
+      )}
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+              <th className="py-2 pr-3">Company</th>
+              <th className="py-2 pr-3">Badge status</th>
+              <th className="py-2 pr-3">Submitted page</th>
+              <th className="py-2 pr-3">Last checked</th>
+              <th className="py-2 pr-3">Enhanced profile</th>
+            </tr>
+          </thead>
+          <tbody>
+            {employers.map((emp) => {
+              const p = declaredByEmployer.get(emp.id);
+              const status = !p
+                ? { dot: "bg-slate-300", label: "No page submitted", cls: "text-slate-500" }
+                : p.present === true
+                  ? { dot: "bg-emerald-500", label: "Verified", cls: "text-emerald-700" }
+                  : p.present === false
+                    ? { dot: "bg-red-500", label: "Missing", cls: "text-red-700" }
+                    : { dot: "bg-amber-400", label: "Not yet checked", cls: "text-amber-700" };
+              const checked = p?.last_checked_at
+                ? new Date(p.last_checked_at).toLocaleDateString()
+                : "—";
+              return (
+                <tr key={emp.id} className="border-b border-slate-100 align-top">
+                  <td className="py-2 pr-3">
+                    <a href={`/employers/${emp.id}`} className="font-medium text-navy-700 hover:underline">
+                      {emp.company}
+                    </a>
+                  </td>
+                  <td className="py-2 pr-3">
+                    <span className={`inline-flex items-center gap-1.5 ${status.cls}`}>
+                      <span className={`h-2 w-2 rounded-full ${status.dot}`} />
+                      {status.label}
+                    </span>
+                    {p?.last_status && p.present === false && (
+                      <span className="block text-xs text-slate-400">{p.last_status}</span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 max-w-[220px]">
+                    {p ? (
+                      <a href={p.page_url} target="_blank" rel="noopener" className="block truncate text-navy-600 hover:underline">
+                        {p.page_url}
+                      </a>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 whitespace-nowrap text-slate-600">{checked}</td>
+                  <td className="py-2 pr-3">
+                    <form action="/api/admin/employers" method="post" className="flex items-center gap-2">
+                      <input type="hidden" name="id" value={emp.id} />
+                      <input type="hidden" name="enhanced" value={emp.enhanced_profile ? "0" : "1"} />
+                      <span className={emp.enhanced_profile ? "text-emerald-700" : "text-slate-400"}>
+                        {emp.enhanced_profile ? "On" : "Off"}
+                      </span>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        {emp.enhanced_profile ? "Turn off" : "Turn on"}
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              );
+            })}
+            {employers.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-4 text-center text-slate-400">
+                  No employers yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Jobs */}

@@ -28,11 +28,13 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const website = normalizeUrl(String(form.get("website") ?? ""));
   const logo_url = normalizeUrl(String(form.get("logo_url") ?? ""));
+  const aboutRaw = String(form.get("about") ?? "").trim();
+  const about = aboutRaw ? aboutRaw.slice(0, 1000) : null;
 
   if (website === false || logo_url === false) {
     redirect("/employers/profile?branderror=url");
   }
 
-  await updateEmployerProfile(employer!.id, { website, logo_url });
+  await updateEmployerProfile(employer!.id, { website, logo_url, about });
   redirect("/employers/profile?brandok=1");
 }

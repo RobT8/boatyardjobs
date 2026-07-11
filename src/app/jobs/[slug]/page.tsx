@@ -78,7 +78,14 @@ export default async function JobDetailPage({ params }: Props) {
 
       <h1 className="mt-4 text-3xl font-bold text-navy-800">{job.title}</h1>
       <p className="mt-1 text-lg text-slate-600">
-        {job.company} · {job.city}, {stateName}
+        {employer ? (
+          <Link href={`/employers/${employer.id}`} className="text-navy-700 hover:underline">
+            {job.company}
+          </Link>
+        ) : (
+          job.company
+        )}{" "}
+        · {job.city}, {stateName}
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2 text-sm">

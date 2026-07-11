@@ -1,7 +1,38 @@
 import { countEmployerPublishedJobs, getEmployerById } from "@/lib/employers";
+import { recordDetectedPlacement } from "@/lib/badge-placements";
 import { renderBadge } from "@/lib/badge";
+import { siteUrl } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * The cross-origin page a badge request came from, normalised to origin + path
+ * (query/hash dropped). Returns null for same-origin requests — our own pages
+ * and the profile-page preview, which aren't employer placements.
+ */
+function refererPlacement(req: Request): string | null {
+  const ref = req.headers.get("referer");
+  if (!ref) return null;
+  const ours = new Set<string>();
+  try {
+    ours.add(new URL(req.url).host);
+  } catch {
+    /* ignore */
+  }
+  try {
+    ours.add(new URL(siteUrl()).host);
+  } catch {
+    /* ignore */
+  }
+  try {
+    const u = new URL(ref);
+    if (ours.has(u.host)) return null;
+    const path = `${u.origin}${u.pathname}`.replace(/\/$/, "");
+    return path || u.origin;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /api/badge/[id]?style=<styleId> → an SVG "We're Hiring" badge for the
@@ -30,6 +61,16 @@ export async function GET(
   const employer = await getEmployerById(employerId);
   if (!employer) {
     return new Response("Not found", { status: 404 });
+  }
+
+  // Best-effort: note which external page this badge is embedded on.
+  const placement = refererPlacement(req);
+  if (placement) {
+    try {
+      await recordDetectedPlacement(employerId, placement);
+    } catch {
+      /* logging must never break the image */
+    }
   }
 
   const count = await countEmployerPublishedJobs(employerId);

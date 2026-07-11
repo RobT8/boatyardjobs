@@ -1,0 +1,38 @@
+name: Verify employer badges
+
+# Checks that employers on the "We're Hiring" badge deal still show the badge on
+# the page they submitted, and emails the owner when one goes missing. Runs
+# weekly, and on demand.
+#
+# Required repository secrets:
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+#   RESEND_API_KEY      from resend.com (to send the alert)
+#   ALERTS_FROM_EMAIL   verified sender, e.g. "BoatyardJobs <alerts@yourdomain.com>"
+#   LEADS_NOTIFY_EMAIL  where the "badge missing" alert is sent (your inbox)
+#   SITE_URL            e.g. https://www.boatyardjobs.com (for links in the email)
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # weekly, Mondays 08:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify badges + alert on missing
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERTS_FROM_EMAIL: ${{ secrets.ALERTS_FROM_EMAIL }}
+          LEADS_NOTIFY_EMAIL: ${{ secrets.LEADS_NOTIFY_EMAIL }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: npm run verify-badges

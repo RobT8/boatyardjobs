@@ -11,8 +11,9 @@
     "digest": "tsx --env-file-if-exists=.env.local scripts/alerts/send-digest.ts",
     "warn-expiring": "tsx --env-file-if-exists=.env.local scripts/expiry/warn-jobs.ts",
     "warn-expiring-ads": "tsx --env-file-if-exists=.env.local scripts/expiry/warn-ads.ts",
+    "verify-badges": "tsx --env-file-if-exists=.env.local scripts/badge/verify.ts",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
-    "test": "tsx scripts/aggregate/parse.test.ts && tsx scripts/jobs-jsonld.test.ts"
+    "test": "tsx scripts/aggregate/parse.test.ts && tsx scripts/jobs-jsonld.test.ts && tsx scripts/badge/badge.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
