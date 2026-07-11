@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { BADGE_STYLES, DEFAULT_BADGE_STYLE, badgeStyle } from "@/lib/badge";
 
 /**
- * Shows the employer's live "We're Hiring" badge plus the copy-paste HTML embed
- * snippet. The snippet is a plain `<a><img></a>` — a real, crawlable backlink to
- * the employer's BoatyardJobs page (good for our SEO) that also shows their live
- * open-roles count on their own careers page (useful to them).
+ * Lets an employer pick a "We're Hiring" badge style and copy its embed snippet.
+ * The snippet is a plain `<a><img></a>` — a real, crawlable backlink to the
+ * employer's BoatyardJobs page (good for our SEO) that also shows their live
+ * open-roles count on their own careers page (useful to them). Previews load the
+ * live badge endpoint, so the count shown is always current.
  */
 export default function BadgeEmbed({
   employerId,
@@ -15,13 +17,15 @@ export default function BadgeEmbed({
   employerId: number;
   siteUrl: string;
 }) {
+  const [styleId, setStyleId] = useState(DEFAULT_BADGE_STYLE);
   const [copied, setCopied] = useState(false);
 
-  const badgeSrc = `${siteUrl}/api/badge/${employerId}`;
+  const style = badgeStyle(styleId);
+  const badgeSrc = `${siteUrl}/api/badge/${employerId}?style=${style.id}`;
   const target = `${siteUrl}/employers/${employerId}?utm_source=badge&utm_medium=referral&utm_campaign=were-hiring`;
   const alt = "We're hiring — see our marine & boatyard jobs on BoatyardJobs";
   const snippet = `<a href="${target}" target="_blank" rel="noopener">
-  <img src="${badgeSrc}" alt="${alt}" width="260" height="72" loading="lazy" />
+  <img src="${badgeSrc}" alt="${alt}" width="${style.w}" height="${style.h}" loading="lazy" />
 </a>`;
 
   async function copy() {
@@ -37,13 +41,44 @@ export default function BadgeEmbed({
   return (
     <div>
       <p className="text-xs text-slate-500">
-        Paste this on your careers page. It shows your live openings and links back to your jobs on
-        BoatyardJobs — which also helps your listings rank in Google.
+        Pick a style, then paste the code on your careers page. It shows your live openings and
+        links back to your jobs on BoatyardJobs — which also helps your listings rank in Google.
       </p>
 
-      <div className="mt-3 flex items-center justify-center rounded-md border border-slate-200 bg-slate-50 p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={badgeSrc} alt={alt} width={260} height={72} />
+      {/* Style picker — each option previews the real, live badge. */}
+      <div role="radiogroup" aria-label="Badge style" className="mt-3 space-y-2">
+        {BADGE_STYLES.map((s) => {
+          const selected = s.id === styleId;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setStyleId(s.id)}
+              className={`flex w-full items-center gap-4 rounded-lg border p-3 text-left transition ${
+                selected
+                  ? "border-navy-600 ring-1 ring-navy-600 bg-navy-50"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-sm font-medium text-navy-800">{s.label}</span>
+                <span className="text-xs text-slate-500">{s.hint}</span>
+              </span>
+              <span className="flex shrink-0 items-center justify-center rounded-md bg-slate-50 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`${siteUrl}/api/badge/${employerId}?style=${s.id}`}
+                  alt={`${s.label} badge preview`}
+                  width={s.w}
+                  height={s.h}
+                  style={{ maxWidth: 200, height: "auto" }}
+                />
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <label className="mt-4 block text-xs font-medium text-slate-500">Embed code</label>
