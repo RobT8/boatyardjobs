@@ -133,9 +133,36 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Organization + WebSite structured data gives Google a canonical brand name
+  // and logo for BoatyardJobs — the anchor mark it can show as the source icon
+  // beside our listings in the Google Jobs box, rather than a plain letter.
+  const base = (process.env.SITE_URL ?? "https://www.boatyardjobs.com").replace(/\/$/, "");
+  const orgJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${base}/#organization`,
+        name: "BoatyardJobs",
+        url: base,
+        logo: { "@type": "ImageObject", url: `${base}/logo.png`, width: 512, height: 512 },
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${base}/#website`,
+        name: "BoatyardJobs",
+        url: base,
+        publisher: { "@id": `${base}/#organization` },
+      },
+    ],
+  };
   return (
     <html lang="en" className="h-full">
       <body className={`${geist.className} flex min-h-full flex-col`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        />
         <PageViewTracker />
         <SiteHeader />
         <main className="flex-1">{children}</main>

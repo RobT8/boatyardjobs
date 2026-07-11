@@ -118,6 +118,19 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
 
 ## Session log (newest first)
 
+### 2026-07-10 — Brand icon / favicon (Google Jobs source letter → anchor)
+The site had only the default `favicon.ico`, so Google/browsers showed a letter
+as the source icon beside our listings. Added a real BoatyardJobs anchor mark
+(navy tile, brass anchor) and wired the full icon set:
+- `src/app/icon.svg` (scalable, Next auto-serves as favicon), `src/app/favicon.ico`
+  (multi-size 16/32/48, replaces the default), `src/app/apple-icon.png` (180),
+  `public/logo.png` (512 — Organization logo).
+- **Organization + WebSite JSON-LD** in `layout.tsx` pointing `logo` at
+  `/logo.png`, giving Google a canonical brand logo for the source/publisher.
+- Note: the per-listing tile logo in Google Jobs is the *hiring company's*
+  `hiringOrganization.logo` (real employer logos for direct listings; letter
+  fallback for feed jobs) — deliberately NOT overridden with our brand.
+
 ### 2026-07-10 — Badge tracking + two-tier employer profiles
 Turned the badge into an enforceable deal ("6 months free advertising for keeping
 the badge up") and split employer profiles into free/paid tiers.
