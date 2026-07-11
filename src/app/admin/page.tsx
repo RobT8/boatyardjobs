@@ -84,13 +84,28 @@ interface Props {
     discount_error?: string;
     discount_toggled?: string;
     employer_updated?: string;
+    badge_checked?: string;
   }>;
 }
 
+const BADGE_CHECK_MSG: Record<string, string> = {
+  present: "Checked — badge is present. ✓",
+  missing: "Checked — badge NOT found on the submitted page. You've been emailed.",
+  unreachable: "Checked — couldn't reach that page (left unchanged). Try again shortly.",
+  none: "That employer hasn't submitted a badge page yet.",
+};
+
 export default async function AdminPage({ searchParams }: Props) {
   if (!(await isAdmin())) redirect("/admin/login");
-  const { posted, job_error, discount_added, discount_error, discount_toggled, employer_updated } =
-    await searchParams;
+  const {
+    posted,
+    job_error,
+    discount_added,
+    discount_error,
+    discount_toggled,
+    employer_updated,
+    badge_checked,
+  } = await searchParams;
   const [s, subscribers, leads, pendingAds, activeAds, discounts, employers, placements] =
     await Promise.all([
       getAdminStats(),
@@ -489,6 +504,19 @@ export default async function AdminPage({ searchParams }: Props) {
           Employer profile updated.
         </p>
       )}
+      {badge_checked && BADGE_CHECK_MSG[badge_checked] && (
+        <p
+          className={`mt-3 rounded-md px-4 py-2 text-sm font-medium ${
+            badge_checked === "present"
+              ? "bg-emerald-50 text-emerald-700"
+              : badge_checked === "missing"
+                ? "bg-red-50 text-red-700"
+                : "bg-slate-100 text-slate-700"
+          }`}
+        >
+          {BADGE_CHECK_MSG[badge_checked]}
+        </p>
+      )}
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead>
@@ -538,7 +566,20 @@ export default async function AdminPage({ searchParams }: Props) {
                       <span className="text-slate-400">—</span>
                     )}
                   </td>
-                  <td className="py-2 pr-3 whitespace-nowrap text-slate-600">{checked}</td>
+                  <td className="py-2 pr-3 whitespace-nowrap text-slate-600">
+                    <div>{checked}</div>
+                    {p && (
+                      <form action="/api/admin/verify-badge" method="post" className="mt-1">
+                        <input type="hidden" name="id" value={emp.id} />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-navy-600 px-2.5 py-1 text-xs font-medium text-navy-700 hover:bg-navy-50"
+                        >
+                          Check now
+                        </button>
+                      </form>
+                    )}
+                  </td>
                   <td className="py-2 pr-3">
                     <form action="/api/admin/employers" method="post" className="flex items-center gap-2">
                       <input type="hidden" name="id" value={emp.id} />
