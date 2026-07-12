@@ -15,7 +15,8 @@
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
     "test": "tsx scripts/aggregate/parse.test.ts && tsx scripts/jobs-jsonld.test.ts && tsx scripts/badge/badge.test.ts",
     "smoke": "playwright test",
-    "smoke:record": "tsx --env-file-if-exists=.env.local scripts/smoke/run.ts"
+    "smoke:record": "tsx --env-file-if-exists=.env.local scripts/smoke/run.ts",
+    "smoke:config": "tsx --env-file-if-exists=.env.local scripts/smoke/config-check.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",

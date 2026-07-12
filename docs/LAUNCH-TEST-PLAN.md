@@ -236,14 +236,22 @@ and read the logs; don't wait for the schedule.
   confirm SPF/DKIM/DMARC and that mail isn't binned.
 - **Structured data:** Google Rich Results Test + Schema.org validator on 3 job
   URLs (one direct w/ salary+address, one feed job, one no-salary).
-- **Automation (built — `tests/smoke/`):** a read-only Playwright smoke suite
-  covers A1–A5, A8, A10, A11, B1/B2, C1–C5, D1, H1, H6/H7 against the live site.
-  Run `npm run smoke` (or `SMOKE_BASE_URL=… npm run smoke`). The `smoke.yml`
-  GitHub Action runs it every 6 hours, records each run in the `smoke_runs`
-  table, surfaces it in **Admin → Launch readiness**, and **emails
-  `LEADS_NOTIFY_EMAIL` on failure**. See `tests/smoke/README.md`. This is the
-  repeatable pre-advertising gate; the manual cases above cover what it can't
-  (payments, email delivery, crons).
+- **Automation (built — `tests/smoke/`):** a read-only Playwright smoke suite +
+  config check cover the P0s that are safe to run against production repeatedly:
+  - **Browser suite:** A1–A5, A8, A10, A11, B1/B2, C1–C5, D1, H1, H6/H7, plus
+    **F12** (webhook rejects a forged signature), **I6** (admin gate), **I4**
+    (invalid-email rejection). `npm run smoke`.
+  - **Config check** (`npm run smoke:config`): **1.2/1.4** (Stripe webhook on the
+    www host + subscribed to the 4 events), **1.6** (migrations applied), **A2**
+    (`listing_rank` populated/in-range).
+  The `smoke.yml` GitHub Action runs both every 6 hours, records the browser run
+  in `smoke_runs` (shown in **Admin → Launch readiness**), and **emails
+  `LEADS_NOTIFY_EMAIL` on any failure**. See `tests/smoke/README.md`.
+- **Still manual — cannot self-test on production without real charges:** the
+  payment P0s (C6, C7, C11, D3–D5, F1–F11), email delivery, and crons (G). The
+  option for the payment P0s is a **Stripe test-mode end-to-end harness** (drives
+  test-card checkouts + replays webhook events) — automatable, but it tests
+  test-mode config, so still finish with one real live smoke-charge before launch.
 
 ---
 

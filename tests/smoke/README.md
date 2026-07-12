@@ -11,9 +11,16 @@ emails. They answer one question: *are the load-bearing flows alive?*
 | `public.spec.ts` | A1–A5, A8, H1 | Home, job board, search, a job page + tracked Apply link, salary page, valid JobPosting JSON-LD |
 | `accounts.spec.ts` | B1/B2, C1–C5, D1, A10 | Alerts form, employer sign-in, post-a-job wizard, advertise + employers pages |
 | `infra.spec.ts` | H6/H7, A11 | robots.txt, sitemap.xml, 404 handling, apex→www redirect |
+| `security.spec.ts` | F12, I6, I4 | Webhook rejects a forged signature, admin gate redirects, alerts form rejects an invalid email — all without writing data |
 
-Payments (F), email delivery, and crons (G) are **not** here — they need live
-keys / real charges and stay manual per `docs/LAUNCH-TEST-PLAN.md`.
+Plus a **config check** (`scripts/smoke/config-check.ts`, `npm run smoke:config`)
+for the P0s a browser can't see: the Stripe webhook endpoint is on the www host +
+subscribed to the 4 handled events (1.2/1.4), the app's migrations are applied
+(1.6), and `jobs.listing_rank` is populated/in-range so board order holds (A2).
+
+**Still manual** (need real charges or a Stripe test-mode harness): the payment
+P0s — C6, C7, C11, D3–D5, F1–F11 — plus email delivery and crons (G). Auto-running
+those against production would create real transactions. See `docs/LAUNCH-TEST-PLAN.md`.
 
 ## Run it
 

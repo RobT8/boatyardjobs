@@ -30,7 +30,18 @@ jobs:
       - run: npm ci
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+      - name: Config & data-integrity checks (Stripe webhook, migrations, listing_rank)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERTS_FROM_EMAIL: ${{ secrets.ALERTS_FROM_EMAIL }}
+          LEADS_NOTIFY_EMAIL: ${{ secrets.LEADS_NOTIFY_EMAIL }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: npm run smoke:config
       - name: Run smoke suite + record + alert on failure
+        if: always()
         env:
           SMOKE_BASE_URL: ${{ secrets.SITE_URL || 'https://www.boatyardjobs.com' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
