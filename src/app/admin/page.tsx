@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
 import { getAdminStats, type Bucket } from "@/lib/admin";
@@ -80,6 +81,44 @@ function BarList({
   );
 }
 
+/** Collapsible dashboard section. Renders the old `<h2>` as a clickable summary. */
+function Section({
+  title,
+  children,
+  id,
+  defaultOpen = true,
+}: {
+  title: ReactNode;
+  children: ReactNode;
+  id?: string;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details
+      id={id}
+      open={defaultOpen}
+      className="group mt-8 border-t border-slate-100 pt-5 first:mt-6 first:border-t-0 first:pt-0"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-lg font-bold text-navy-800 [&::-webkit-details-marker]:hidden">
+        <svg
+          className="h-4 w-4 flex-none text-slate-400 transition-transform group-open:rotate-90"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+        {title}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 interface Props {
   searchParams: Promise<{
     posted?: string;
@@ -148,16 +187,17 @@ export default async function AdminPage({ searchParams }: Props) {
             label: "Dashboard",
             content: (
               <>
-      {/* Headline metrics */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Section title="Overview">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Confirmed subscribers" value={s.subscribers_confirmed} sub={`${s.subscribers_pending} awaiting confirm`} />
         <StatCard label="Apply clicks (total)" value={s.clicks_total} sub={`${s.clicks_7d} in last 7d · ${s.clicks_30d} in 30d`} />
         <StatCard label="Pageviews (total)" value={s.pageviews_total} sub={`${s.pageviews_7d} in last 7d · ${s.pageviews_30d} in 30d`} />
         <StatCard label="Live jobs" value={s.jobs_published} sub={`${s.jobs_pending} pending · ${s.jobs_expired} expired`} />
       </div>
 
-      {/* Visitors */}
-      <h2 className="mt-10 text-lg font-bold text-navy-800">Visitors</h2>
+      </Section>
+
+      <Section title="Visitors">
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <BarList title="Pageviews — last 14 days" items={s.pageviews_by_day.map((d) => ({ label: d.day, n: d.n }))} />
         <BarList title="Top referrers" items={s.top_referrers} />
@@ -167,8 +207,9 @@ export default async function AdminPage({ searchParams }: Props) {
         <BarList title="Top pages" items={s.top_pages} />
       </div>
 
-      {/* Subscribers */}
-      <h2 className="mt-10 text-lg font-bold text-navy-800">Subscribers ({s.subscribers_total} total)</h2>
+      </Section>
+
+      <Section title={`Subscribers (${s.subscribers_total} total)`}>
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <BarList title="By state" items={s.subscribers_by_state} relabel={(c) => US_STATES[c] ?? c} />
         <BarList title="By role" items={s.subscribers_by_category} relabel={(c) => ROLE_LABEL[c] ?? c} />
@@ -235,8 +276,9 @@ export default async function AdminPage({ searchParams }: Props) {
         )}
       </details>
 
-      {/* Engagement */}
-      <h2 className="mt-10 text-lg font-bold text-navy-800">Most-clicked jobs</h2>
+      </Section>
+
+      <Section title="Most-clicked jobs">
       <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
         {s.top_clicked_jobs.length === 0 ? (
           <p className="text-sm text-slate-400">No apply clicks yet.</p>
@@ -262,10 +304,9 @@ export default async function AdminPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Employer leads */}
-      <h2 className="mt-10 text-lg font-bold text-navy-800">
-        Employer leads ({leads.length})
-      </h2>
+      </Section>
+
+      <Section title={`Employer leads (${leads.length})`}>
       <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
         {leads.length === 0 ? (
           <p className="text-sm text-slate-400">No employer leads yet.</p>
@@ -314,11 +355,9 @@ export default async function AdminPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Advertising */}
-      <h2 className="mt-10 text-lg font-bold text-navy-800">
-        Advertising — {priceLabel(mrr)}/mo recurring
-      </h2>
+      </Section>
 
+      <Section title={<>Advertising — {priceLabel(mrr)}/mo recurring</>}>
       {pendingAds.length > 0 && (
         <div className="mt-3 rounded-lg border border-brass-400 bg-amber-50/40 p-4">
           <h3 className="text-sm font-semibold text-navy-800">
@@ -410,9 +449,9 @@ export default async function AdminPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Discount codes */}
-      <h2 className="mt-10 text-lg font-bold text-navy-800">Discount codes</h2>
+      </Section>
 
+      <Section title="Discount codes">
       {discount_added && (
         <p className="mt-3 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
           Discount code created.
@@ -502,10 +541,9 @@ export default async function AdminPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Badge deals & employer profiles */}
-      <h2 id="badge-deals" className="mt-10 text-lg font-bold text-navy-800">
-        Badge deals &amp; employer profiles ({employers.length})
-      </h2>
+      </Section>
+
+      <Section id="badge-deals" title={`Badge deals & employer profiles (${employers.length})`}>
       <p className="mt-1 text-sm text-slate-500">
         Verify the &ldquo;We&apos;re Hiring&rdquo; badge is still on each deal employer&apos;s
         submitted page, and grant the enhanced (detailed) public profile. Checked weekly; you&apos;re
@@ -621,9 +659,9 @@ export default async function AdminPage({ searchParams }: Props) {
         </table>
       </div>
 
-      {/* Jobs */}
-      <h2 className="mt-10 text-lg font-bold text-navy-800">Jobs</h2>
+      </Section>
 
+      <Section title="Jobs">
       {posted && (
         <p className="mt-3 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
           Job posted — it&apos;s live now with a 30-day run.
@@ -683,6 +721,7 @@ export default async function AdminPage({ searchParams }: Props) {
         <BarList title="By role" items={s.jobs_by_category} relabel={(c) => ROLE_LABEL[c] ?? c} />
         <BarList title="By state (top)" items={s.jobs_by_state} relabel={(c) => US_STATES[c] ?? c} />
       </div>
+      </Section>
               </>
             ),
           },
