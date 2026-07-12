@@ -430,6 +430,49 @@ export async function publishPaidJob(jobId: number): Promise<string | null> {
   return (data?.[0]?.slug as string) ?? null;
 }
 
+/** Free/reviewed submissions awaiting admin approval, newest first. */
+export async function listPendingJobs(): Promise<Job[]> {
+  const { data, error } = await getDb()
+    .from("jobs")
+    .select("*")
+    .eq("status", "pending")
+    .order("posted_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => normalize(r as Record<string, unknown>));
+}
+
+/**
+ * Approve a free/reviewed submission: flip 'pending' → 'published' with a fresh
+ * {@link DIRECT_JOB_DAYS} run. Idempotent (only acts on a still-'pending' row),
+ * so a double-click is safe. Returns the slug if it acted (so the caller can
+ * notify search engines), else null.
+ */
+export async function publishPendingJob(jobId: number): Promise<string | null> {
+  const now = new Date().toISOString();
+  const { data, error } = await getDb()
+    .from("jobs")
+    .update({
+      status: "published",
+      posted_at: now,
+      expires_at: addDaysIso(now, DIRECT_JOB_DAYS),
+    })
+    .eq("id", jobId)
+    .eq("status", "pending")
+    .select("slug");
+  if (error) throw error;
+  return (data?.[0]?.slug as string) ?? null;
+}
+
+/** Reject a pending submission by retiring it (kept for the record, not deleted). */
+export async function rejectPendingJob(jobId: number): Promise<void> {
+  const { error } = await getDb()
+    .from("jobs")
+    .update({ status: "expired" })
+    .eq("id", jobId)
+    .eq("status", "pending");
+  if (error) throw error;
+}
+
 /**
  * Hard age cap for listings pulled from an external feed: anything still on the
  * board past this many months is retired, even if it's still appearing upstream

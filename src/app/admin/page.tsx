@@ -7,6 +7,7 @@ import { listAlertSubscribers, type AlertFilter } from "@/lib/alerts";
 import { listEmployerLeads } from "@/lib/leads";
 import { listDiscountCodes } from "@/lib/discounts";
 import { listAllEmployers } from "@/lib/employers";
+import { listPendingJobs } from "@/lib/jobs";
 import { listAllPlacements, type PlacementWithCompany } from "@/lib/badge-placements";
 import {
   getChannel,
@@ -123,6 +124,8 @@ interface Props {
   searchParams: Promise<{
     posted?: string;
     job_error?: string;
+    job_approved?: string;
+    job_rejected?: string;
     discount_added?: string;
     discount_error?: string;
     discount_toggled?: string;
@@ -143,13 +146,15 @@ export default async function AdminPage({ searchParams }: Props) {
   const {
     posted,
     job_error,
+    job_approved,
+    job_rejected,
     discount_added,
     discount_error,
     discount_toggled,
     employer_updated,
     badge_checked,
   } = await searchParams;
-  const [s, subscribers, leads, pendingAds, activeAds, discounts, employers, placements, latestSmoke] =
+  const [s, subscribers, leads, pendingAds, activeAds, discounts, employers, placements, latestSmoke, pendingJobs] =
     await Promise.all([
       getAdminStats(),
       listAlertSubscribers(),
@@ -160,6 +165,7 @@ export default async function AdminPage({ searchParams }: Props) {
       listAllEmployers(),
       listAllPlacements(),
       getLatestSmokeRun(),
+      listPendingJobs(),
     ]);
   const mrr = mrrCents(activeAds);
 
@@ -187,6 +193,79 @@ export default async function AdminPage({ searchParams }: Props) {
             label: "Dashboard",
             content: (
               <>
+      <Section id="pending" title={`Pending jobs (${pendingJobs.length})`}>
+      {job_approved && (
+        <p className="mt-3 rounded-md bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+          Job approved — it&apos;s live now with a 30-day run.
+        </p>
+      )}
+      {job_rejected && (
+        <p className="mt-3 rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
+          Submission rejected — it won&apos;t appear on the board.
+        </p>
+      )}
+      <p className="mt-1 text-sm text-slate-500">
+        Free employer submissions awaiting review. Approve to publish (30-day run) or reject to retire.
+      </p>
+      <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white p-4">
+        {pendingJobs.length === 0 ? (
+          <p className="text-sm text-slate-400">No submissions waiting for review.</p>
+        ) : (
+          <table className="w-full min-w-[720px] text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="pb-2">Job</th>
+                <th className="pb-2">Company</th>
+                <th className="pb-2">Location</th>
+                <th className="pb-2">Apply to</th>
+                <th className="pb-2 text-right">Submitted</th>
+                <th className="pb-2 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingJobs.map((j) => (
+                <tr key={j.id} className="border-t border-slate-100 align-top">
+                  <td className="py-2 pr-2 font-medium text-navy-800">{j.title}</td>
+                  <td className="py-2 pr-2 text-slate-600">{j.company}</td>
+                  <td className="py-2 pr-2 text-slate-500">
+                    {j.city}, {US_STATES[j.state] ?? j.state}
+                  </td>
+                  <td className="py-2 pr-2 text-slate-500">
+                    {j.apply_email ? (
+                      <a href={`mailto:${j.apply_email}`} className="text-navy-600 hover:underline">
+                        {j.apply_email}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="py-2 pr-2 text-right text-slate-400">
+                    {new Date(j.posted_at).toLocaleDateString()}
+                  </td>
+                  <td className="py-2">
+                    <div className="flex justify-end gap-2">
+                      <form action={`/api/admin/jobs/${j.id}`} method="post">
+                        <input type="hidden" name="action" value="approve" />
+                        <button className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
+                          Approve
+                        </button>
+                      </form>
+                      <form action={`/api/admin/jobs/${j.id}`} method="post">
+                        <input type="hidden" name="action" value="reject" />
+                        <button className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
+                          Reject
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      </Section>
+
       <Section title="Overview">
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Confirmed subscribers" value={s.subscribers_confirmed} sub={`${s.subscribers_pending} awaiting confirm`} />
