@@ -42,3 +42,10 @@ next-env.d.ts
 
 # SQLite database
 data/
+
+# Playwright smoke suite
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+smoke-results.json

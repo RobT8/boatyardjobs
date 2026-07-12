@@ -50,7 +50,7 @@ Actions environment**, not just locally.
 - ☐ Run Supabase **advisors** (security + performance) and clear anything critical.
 
 ### 1.3 Email — Resend (P1, P0 for payment receipts if any)
-- ☐ `RESEND_API_KEY`, `ALERTS_FROM`, `LEADS_NOTIFY_EMAIL`, `SITE_URL` set in Vercel **and** in `digest.yml` / `badge-verify.yml`.
+- ☐ `RESEND_API_KEY`, `ALERTS_FROM_EMAIL`, `LEADS_NOTIFY_EMAIL`, `SITE_URL` set in Vercel **and** in `digest.yml` / `badge-verify.yml` / `smoke.yml`.
 - ☐ Sending domain verified in Resend (SPF, DKIM, DMARC records live on the DNS). Without this, mail lands in spam or is rejected.
 - ☐ `SITE_URL` = the **www** value everywhere (Vercel env + every Actions secret) — HANDOVER 2026-07-07.
 
@@ -236,9 +236,14 @@ and read the logs; don't wait for the schedule.
   confirm SPF/DKIM/DMARC and that mail isn't binned.
 - **Structured data:** Google Rich Results Test + Schema.org validator on 3 job
   URLs (one direct w/ salary+address, one feed job, one no-salary).
-- **Automation (optional but recommended):** a small Playwright smoke suite over
-  A1–A5, B1–B4, C1–C6 gives you a repeatable pre-deploy gate. Chromium is
-  preinstalled in this environment.
+- **Automation (built — `tests/smoke/`):** a read-only Playwright smoke suite
+  covers A1–A5, A8, A10, A11, B1/B2, C1–C5, D1, H1, H6/H7 against the live site.
+  Run `npm run smoke` (or `SMOKE_BASE_URL=… npm run smoke`). The `smoke.yml`
+  GitHub Action runs it every 6 hours, records each run in the `smoke_runs`
+  table, surfaces it in **Admin → Launch readiness**, and **emails
+  `LEADS_NOTIFY_EMAIL` on failure**. See `tests/smoke/README.md`. This is the
+  repeatable pre-advertising gate; the manual cases above cover what it can't
+  (payments, email delivery, crons).
 
 ---
 

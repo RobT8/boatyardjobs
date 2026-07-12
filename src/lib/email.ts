@@ -72,6 +72,42 @@ export function badgeMissingHtml(opts: {
     </p>`);
 }
 
+/** Internal alert: the automated smoke suite found a broken flow on the live site. */
+export function smokeFailureHtml(summary: {
+  passed: number;
+  failed: number;
+  skipped: number;
+  baseUrl: string;
+  results: { title: string; status: string; error?: string }[];
+}): string {
+  const failed = summary.results.filter((r) => r.status === "failed");
+  const rows = failed
+    .map(
+      (r) => `
+      <tr><td style="padding:8px 0;border-bottom:1px solid #f1e0dd">
+        <div style="color:#b3402f;font-weight:600">✗ ${r.title}</div>
+        ${r.error ? `<div style="color:#64748b;font-size:12px;margin-top:2px;font-family:ui-monospace,Menlo,monospace">${r.error.split("\n")[0]}</div>` : ""}
+      </td></tr>`,
+    )
+    .join("");
+  return wrap(`
+    <h1 style="font-size:18px;margin:0 0 12px">Smoke suite failed on the live site</h1>
+    <p style="margin:0 0 12px;color:#334155">
+      ${summary.failed} of ${summary.passed + summary.failed} checks failed against
+      <a href="${summary.baseUrl}">${summary.baseUrl}</a>. A core flow may be down for users —
+      review before it costs you an employer.
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin:0 0 16px">${rows}</table>
+    <p style="margin:0 0 16px">
+      <a href="${siteUrl()}/admin#launch" style="background:#c79a3b;color:#1a1407;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:6px;display:inline-block">
+        Open Launch dashboard
+      </a>
+    </p>
+    <p style="margin:0;font-size:12px;color:#94a3b8">
+      ${summary.passed} passed · ${summary.skipped} skipped. Automated by the smoke GitHub Action.
+    </p>`);
+}
+
 const wrap = (body: string) => `
   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#0f172a">
     <div style="background:#0f2942;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0;font-weight:700;font-size:18px">

@@ -118,6 +118,39 @@ brand, not generic terms either). Structured-data groundwork is now done; next:
 
 ## Session log (newest first)
 
+### 2026-07-12 — Launch test plan + smoke suite + Admin "Launch readiness" tab
+Pre-go-live QA work, ahead of advertising the site to employers.
+- **`docs/LAUNCH-TEST-PLAN.md`** — risk-based (P0/P1/P2) go-live checklist mapping
+  every process (candidate/employer/advertiser/admin/payments/crons/SEO/quality)
+  to a pass criterion, with a pre-flight config audit and a GO/NO-GO gate. The
+  single most important open risk it flags: confirm the **Stripe webhook endpoint
+  is the `www` host** (apex 308 isn't followed → paid publishing silently breaks).
+- **Read-only Playwright smoke suite** (`tests/smoke/`, `playwright.config.ts`):
+  15 checks of the core live flows (home, board, search, a job page + tracked
+  Apply link, valid dated JobPosting JSON-LD, alerts form, employer sign-in,
+  post-a-job wizard, advertise/employers pages, robots/sitemap, 404, apex→www).
+  Creates no accounts/jobs/payments/emails — safe against production. Point with
+  `SMOKE_BASE_URL`. `@playwright/test` added as a dev dep.
+- **Runner + alerting** (`scripts/smoke/run.ts`, `npm run smoke:record`): runs the
+  suite, records the result in the new **`smoke_runs`** table (migration
+  `add_smoke_runs`, applied — not in repo), and **emails `LEADS_NOTIFY_EMAIL` on
+  failure** (`smokeFailureHtml` in `email.ts`). New workflow **`smoke.yml`** runs
+  it every 6h + on demand (needs SUPABASE + RESEND + LEADS_NOTIFY_EMAIL + SITE_URL
+  secrets).
+- **Admin gained tabs** (`src/components/AdminTabs.tsx`): existing dashboard is now
+  the "Dashboard" tab; new **"Launch readiness"** tab holds the latest smoke result
+  (`SmokeResults.tsx` ← `getLatestSmokeRun` in `src/lib/smoke.ts`) + an interactive
+  P0/P1/P2 checklist (`LaunchChecklist.tsx`, localStorage-persisted, live GO/NO-GO
+  gate). Tab syncs with the URL hash, so `/admin#badge-deals` and the badge email
+  still work.
+- Verified: `tsc`, `eslint`, `npm test`, full `next build`, and `playwright test
+  --list` (15 tests) all clean. **Not driven live** — this env can't reach prod
+  (firewalled) and has no Supabase creds, so the first real smoke run + the admin
+  tab render are owed on the Vercel deploy.
+- **Owner setup TODO:** add the `smoke.yml` secrets (esp. `LEADS_NOTIFY_EMAIL`) so
+  the failure alert actually sends; trigger the workflow once to seed the panel.
+
+
 ### 2026-07-10 — Brand icon / favicon (Google Jobs source letter → anchor)
 The site had only the default `favicon.ico`, so Google/browsers showed a letter
 as the source icon beside our listings. Added a real BoatyardJobs anchor mark

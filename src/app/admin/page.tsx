@@ -15,6 +15,10 @@ import {
   priceLabel,
 } from "@/lib/ads";
 import { ROLE_CATEGORIES, US_STATES } from "@/lib/taxonomy";
+import { getLatestSmokeRun } from "@/lib/smoke";
+import AdminTabs from "@/components/AdminTabs";
+import LaunchChecklist from "@/components/LaunchChecklist";
+import SmokeResults from "@/components/SmokeResults";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -106,7 +110,7 @@ export default async function AdminPage({ searchParams }: Props) {
     employer_updated,
     badge_checked,
   } = await searchParams;
-  const [s, subscribers, leads, pendingAds, activeAds, discounts, employers, placements] =
+  const [s, subscribers, leads, pendingAds, activeAds, discounts, employers, placements, latestSmoke] =
     await Promise.all([
       getAdminStats(),
       listAlertSubscribers(),
@@ -116,6 +120,7 @@ export default async function AdminPage({ searchParams }: Props) {
       listDiscountCodes(),
       listAllEmployers(),
       listAllPlacements(),
+      getLatestSmokeRun(),
     ]);
   const mrr = mrrCents(activeAds);
 
@@ -136,6 +141,13 @@ export default async function AdminPage({ searchParams }: Props) {
         </form>
       </div>
 
+      <AdminTabs
+        tabs={[
+          {
+            id: "dashboard",
+            label: "Dashboard",
+            content: (
+              <>
       {/* Headline metrics */}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Confirmed subscribers" value={s.subscribers_confirmed} sub={`${s.subscribers_pending} awaiting confirm`} />
@@ -671,6 +683,21 @@ export default async function AdminPage({ searchParams }: Props) {
         <BarList title="By role" items={s.jobs_by_category} relabel={(c) => ROLE_LABEL[c] ?? c} />
         <BarList title="By state (top)" items={s.jobs_by_state} relabel={(c) => US_STATES[c] ?? c} />
       </div>
+              </>
+            ),
+          },
+          {
+            id: "launch",
+            label: "Launch readiness",
+            content: (
+              <>
+                <SmokeResults run={latestSmoke} />
+                <LaunchChecklist />
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

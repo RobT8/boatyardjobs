@@ -1,0 +1,52 @@
+name: Smoke tests
+
+# Read-only Playwright checks of the core live flows (home, job board, a job page
+# + Apply, alerts, employer sign-in, post-a-job). Runs on a schedule and on
+# demand, records each run in the `smoke_runs` table (shown in Admin → Launch),
+# and emails LEADS_NOTIFY_EMAIL if anything fails.
+#
+# Required repository secrets:
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  — to record the run
+#   RESEND_API_KEY, ALERTS_FROM_EMAIL        — to send the failure alert
+#   LEADS_NOTIFY_EMAIL                       — where the alert goes
+#   SITE_URL                                 — the site to test + link in the email
+#                                              (defaults to https://www.boatyardjobs.com)
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run smoke suite + record + alert on failure
+        env:
+          SMOKE_BASE_URL: ${{ secrets.SITE_URL || 'https://www.boatyardjobs.com' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERTS_FROM_EMAIL: ${{ secrets.ALERTS_FROM_EMAIL }}
+          LEADS_NOTIFY_EMAIL: ${{ secrets.LEADS_NOTIFY_EMAIL }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: npm run smoke:record
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            smoke-results.json
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
