@@ -61,10 +61,19 @@ test("H1 · a live JobPosting page emits valid, dated JSON-LD", async ({ page })
   test.skip((await firstJob.count()) === 0, "no live jobs to validate");
   const href = await firstJob.getAttribute("href");
   await page.goto(href!);
-  const raw = await page.locator('script[type="application/ld+json"]').first().textContent();
-  expect(raw, "JobPosting JSON-LD must be present").toBeTruthy();
-  const data = JSON.parse(raw!);
-  expect(data["@type"]).toBe("JobPosting");
+  // The page has several JSON-LD blocks (the layout emits Organization + WebSite);
+  // pick the JobPosting one specifically rather than assuming it's first.
+  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  const data = blocks
+    .map((raw) => {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    })
+    .find((d) => d && d["@type"] === "JobPosting");
+  expect(data, "a JobPosting JSON-LD block must be present").toBeTruthy();
   expect(data.title, "JobPosting.title").toBeTruthy();
   expect(data.hiringOrganization, "hiringOrganization").toBeTruthy();
   // The 2026-06-25 fix: validThrough must always be present (feed jobs fall back
